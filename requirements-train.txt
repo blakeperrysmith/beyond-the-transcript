@@ -1,0 +1,7 @@
+-r requirements.txt
+torch>=2.3
+onnx>=1.16
+pytest
+httpx
+torchview
+graphviz

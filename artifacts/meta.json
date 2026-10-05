@@ -1,0 +1,38 @@
+{
+  "version": "0.1.0",
+  "created": "2026-10-05T01:01:53+00:00",
+  "data_source": "real",
+  "classes": [
+    "neutral",
+    "happy",
+    "sad",
+    "angry",
+    "fearful",
+    "disgust"
+  ],
+  "n_params": 106934,
+  "feature_config": {
+    "sr": 16000,
+    "n_fft": 512,
+    "hop": 160,
+    "n_mels": 64,
+    "win_frames": 300
+  },
+  "temperature": 1.0744963248565944,
+  "abstain_threshold": 0.44851934909820557,
+  "abstain_target_coverage": 0.8,
+  "datasets": [
+    "cremad",
+    "ravdess"
+  ],
+  "licenses": {
+    "cremad": "CREMA-D, Cao et al. 2014, Open Database License (ODbL)",
+    "ravdess": "RAVDESS, Livingstone and Russo 2018, CC BY-NC-SA 4.0 (non-commercial)"
+  },
+  "split_seed": 0,
+  "epochs": 40,
+  "train_seconds": 150.1,
+  "torch": "2.11.0+cu128",
+  "python": "3.13.15",
+  "train_hardware": "x86_64 x4, Tesla T4"
+}

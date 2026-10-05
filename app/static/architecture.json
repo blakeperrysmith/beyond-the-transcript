@@ -1,0 +1,198 @@
+{
+ "input": [
+  1,
+  1,
+  64,
+  300
+ ],
+ "n_params": 106934,
+ "layers": [
+  {
+   "layer": "conv.0.0",
+   "type": "Conv2d",
+   "output": [
+    1,
+    16,
+    64,
+    300
+   ],
+   "params": 144,
+   "ms_p50": 0.226
+  },
+  {
+   "layer": "conv.0.1",
+   "type": "BatchNorm2d",
+   "output": [
+    1,
+    16,
+    64,
+    300
+   ],
+   "params": 32,
+   "ms_p50": 0.242
+  },
+  {
+   "layer": "conv.0.2",
+   "type": "ReLU",
+   "output": [
+    1,
+    16,
+    64,
+    300
+   ],
+   "params": 0,
+   "ms_p50": 0.083
+  },
+  {
+   "layer": "conv.0.3",
+   "type": "MaxPool2d",
+   "output": [
+    1,
+    16,
+    32,
+    150
+   ],
+   "params": 0,
+   "ms_p50": 1.05
+  },
+  {
+   "layer": "conv.1.0",
+   "type": "Conv2d",
+   "output": [
+    1,
+    32,
+    32,
+    150
+   ],
+   "params": 4608,
+   "ms_p50": 0.86
+  },
+  {
+   "layer": "conv.1.1",
+   "type": "BatchNorm2d",
+   "output": [
+    1,
+    32,
+    32,
+    150
+   ],
+   "params": 64,
+   "ms_p50": 0.102
+  },
+  {
+   "layer": "conv.1.2",
+   "type": "ReLU",
+   "output": [
+    1,
+    32,
+    32,
+    150
+   ],
+   "params": 0,
+   "ms_p50": 0.04
+  },
+  {
+   "layer": "conv.1.3",
+   "type": "MaxPool2d",
+   "output": [
+    1,
+    32,
+    16,
+    75
+   ],
+   "params": 0,
+   "ms_p50": 0.576
+  },
+  {
+   "layer": "conv.2.0",
+   "type": "Conv2d",
+   "output": [
+    1,
+    64,
+    16,
+    75
+   ],
+   "params": 18432,
+   "ms_p50": 0.915
+  },
+  {
+   "layer": "conv.2.1",
+   "type": "BatchNorm2d",
+   "output": [
+    1,
+    64,
+    16,
+    75
+   ],
+   "params": 128,
+   "ms_p50": 0.07
+  },
+  {
+   "layer": "conv.2.2",
+   "type": "ReLU",
+   "output": [
+    1,
+    64,
+    16,
+    75
+   ],
+   "params": 0,
+   "ms_p50": 0.026
+  },
+  {
+   "layer": "conv.2.3",
+   "type": "MaxPool2d",
+   "output": [
+    1,
+    64,
+    8,
+    75
+   ],
+   "params": 0,
+   "ms_p50": 0.502
+  },
+  {
+   "layer": "proj",
+   "type": "Linear",
+   "output": [
+    1,
+    75,
+    64
+   ],
+   "params": 32832,
+   "ms_p50": 0.266
+  },
+  {
+   "layer": "gru",
+   "type": "GRU",
+   "output": [
+    1,
+    75,
+    128
+   ],
+   "params": 49920,
+   "ms_p50": 4.095
+  },
+  {
+   "layer": "drop",
+   "type": "Dropout",
+   "output": [
+    1,
+    128
+   ],
+   "params": 0,
+   "ms_p50": 0.022
+  },
+  {
+   "layer": "head",
+   "type": "Linear",
+   "output": [
+    1,
+    6
+   ],
+   "params": 774,
+   "ms_p50": 0.024
+  }
+ ],
+ "timing_note": "p50 per layer over 50 runs, one CPU thread, PyTorch eager, measured at build time"
+}

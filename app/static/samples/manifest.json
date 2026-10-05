@@ -1,0 +1,119 @@
+{
+ "attribution": "Clips are trimmed to at most 3 seconds and come from actors the model never saw in training. Pairs were picked from the labels alone, so the model gets some of them wrong. CREMA-D, Cao et al. 2014, Open Database License (ODbL); RAVDESS, Livingstone and Russo 2018, CC BY-NC-SA 4.0 (non-commercial).",
+ "pairs": [
+  {
+   "id": "pair01",
+   "sentence": "I wonder what this is about",
+   "title": "I wonder what this is about (neutral / angry)",
+   "a": {
+    "file": "pair01_a.wav",
+    "emotion": "neutral",
+    "speaker": "1026",
+    "corpus": "CREMA-D",
+    "caption": "Neutral, CREMA-D actor 1026"
+   },
+   "b": {
+    "file": "pair01_b.wav",
+    "emotion": "angry",
+    "speaker": "1026",
+    "corpus": "CREMA-D",
+    "caption": "Angry, CREMA-D actor 1026"
+   }
+  },
+  {
+   "id": "pair02",
+   "sentence": "I think I've seen this before",
+   "title": "I think I've seen this before (happy / sad)",
+   "a": {
+    "file": "pair02_a.wav",
+    "emotion": "happy",
+    "speaker": "1071",
+    "corpus": "CREMA-D",
+    "caption": "Happy, CREMA-D actor 1071"
+   },
+   "b": {
+    "file": "pair02_b.wav",
+    "emotion": "sad",
+    "speaker": "1071",
+    "corpus": "CREMA-D",
+    "caption": "Sad, CREMA-D actor 1071"
+   }
+  },
+  {
+   "id": "pair03",
+   "sentence": "The surface is slick",
+   "title": "The surface is slick (neutral / sad)",
+   "a": {
+    "file": "pair03_a.wav",
+    "emotion": "neutral",
+    "speaker": "1020",
+    "corpus": "CREMA-D",
+    "caption": "Neutral, CREMA-D actor 1020"
+   },
+   "b": {
+    "file": "pair03_b.wav",
+    "emotion": "sad",
+    "speaker": "1020",
+    "corpus": "CREMA-D",
+    "caption": "Sad, CREMA-D actor 1020"
+   }
+  },
+  {
+   "id": "pair04",
+   "sentence": "Dogs are sitting by the door",
+   "title": "Dogs are sitting by the door (neutral / happy)",
+   "a": {
+    "file": "pair04_a.wav",
+    "emotion": "neutral",
+    "speaker": "12",
+    "corpus": "RAVDESS",
+    "caption": "Neutral, RAVDESS actor 12"
+   },
+   "b": {
+    "file": "pair04_b.wav",
+    "emotion": "happy",
+    "speaker": "12",
+    "corpus": "RAVDESS",
+    "caption": "Happy, RAVDESS actor 12"
+   }
+  },
+  {
+   "id": "pair05",
+   "sentence": "Kids are talking by the door",
+   "title": "Kids are talking by the door (angry / sad)",
+   "a": {
+    "file": "pair05_a.wav",
+    "emotion": "angry",
+    "speaker": "20",
+    "corpus": "RAVDESS",
+    "caption": "Angry, RAVDESS actor 20"
+   },
+   "b": {
+    "file": "pair05_b.wav",
+    "emotion": "sad",
+    "speaker": "20",
+    "corpus": "RAVDESS",
+    "caption": "Sad, RAVDESS actor 20"
+   }
+  },
+  {
+   "id": "pair06",
+   "sentence": "Dogs are sitting by the door",
+   "title": "Dogs are sitting by the door (neutral / fearful)",
+   "a": {
+    "file": "pair06_a.wav",
+    "emotion": "neutral",
+    "speaker": "21",
+    "corpus": "RAVDESS",
+    "caption": "Neutral, RAVDESS actor 21"
+   },
+   "b": {
+    "file": "pair06_b.wav",
+    "emotion": "fearful",
+    "speaker": "21",
+    "corpus": "RAVDESS",
+    "caption": "Fearful, RAVDESS actor 21"
+   }
+  }
+ ]
+}

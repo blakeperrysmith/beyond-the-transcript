@@ -1,0 +1,9 @@
+# Serving. Python 3.10 to 3.14.
+numpy>=1.26
+scipy>=1.11
+tract==0.23.8
+praat-parselmouth>=0.4.5
+fastapi>=0.115
+uvicorn>=0.30
+sqlalchemy>=2.0
+psycopg[binary]>=3.2

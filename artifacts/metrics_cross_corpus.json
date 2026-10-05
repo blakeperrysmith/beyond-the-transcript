@@ -1,0 +1,24 @@
+{
+  "cremad_to_ravdess": {
+    "n_train_clips": 6217,
+    "n_test_clips": 2112,
+    "n_test_speakers": 24,
+    "accuracy": 0.36742424242424243,
+    "accuracy_ci95_speaker_bootstrap": [
+      0.339938446969697,
+      0.39299242424242425
+    ],
+    "macro_f1": 0.3082925288531702
+  },
+  "ravdess_to_cremad": {
+    "n_train_clips": 1672,
+    "n_test_clips": 7441,
+    "n_test_speakers": 91,
+    "accuracy": 0.2140841284773552,
+    "accuracy_ci95_speaker_bootstrap": [
+      0.20668283481541364,
+      0.2217618448037781
+    ],
+    "macro_f1": 0.1331994410775544
+  }
+}

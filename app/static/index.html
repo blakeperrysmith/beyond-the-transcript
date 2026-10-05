@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beyond the transcript</title>
+<meta name="description" content="Play two recordings of the same sentence and see what the audio carries that a transcript drops.">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<a class="skip" href="#stage">Skip to the comparison</a>
+
+<header class="top">
+  <h1>Beyond the transcript</h1>
+  <p class="lede">A transcript keeps the words and drops the rest. Pick two recordings of the same sentence, or record your own pair, and compare what the signal still carries.</p>
+  <p id="banner" class="banner" role="status" hidden></p>
+</header>
+
+<main>
+  <section id="engine" class="engine" aria-labelledby="engine-h">
+    <h2 id="engine-h">Where the analysis runs</h2>
+    <fieldset class="seg">
+      <legend class="sr">Where the analysis runs</legend>
+      <label><input type="radio" name="engine" value="server" checked><span>On the server</span></label>
+      <label><input type="radio" name="engine" value="device"><span>On your device</span></label>
+    </fieldset>
+    <div id="engine-text" class="engine-text" aria-live="polite"></div>
+    <p id="engine-status" class="note"></p>
+    <p class="note">Either way, your browser asks before it uses the microphone, a recording lives only until you replace it or leave, and nothing you record is used to train anything.</p>
+  </section>
+
+  <section id="pairs" class="pairs" aria-labelledby="pairs-h" hidden>
+    <h2 id="pairs-h">Same sentence, spoken two ways</h2>
+    <div id="pairlist" class="pairlist"></div>
+    <p id="pairs-note" class="note"></p>
+  </section>
+
+  <section id="stage" class="stage" aria-labelledby="sentence-h">
+    <h2 id="sentence-h" class="sr">The sentence</h2>
+    <div id="sentence-wrap">
+      <p id="sentence" class="sentence">Choose a pair above, or record the same sentence twice in two different ways.</p>
+      <label id="own-sentence-wrap" class="own-sentence" hidden>
+        <span>The sentence you will say both times</span>
+        <input id="own-sentence" type="text" maxlength="120" placeholder="For example: I didn't say that">
+      </label>
+    </div>
+
+    <div class="slots">
+      <article class="slot a" id="slot-a" aria-labelledby="slot-a-h">
+        <header>
+          <h3 id="slot-a-h"><span class="tag">A</span> <span id="cap-a" class="cap">Empty</span></h3>
+          <div class="ctrl">
+            <button type="button" id="play-a" disabled>Play</button>
+            <button type="button" id="rec-a" aria-pressed="false">Record</button>
+          </div>
+        </header>
+        <canvas id="spec-a" width="720" height="180" role="img" aria-label="Spectrogram of recording A with pitch line"></canvas>
+        <p id="verdict-a" class="verdict" aria-live="polite"></p>
+      </article>
+
+      <article class="slot b" id="slot-b" aria-labelledby="slot-b-h">
+        <header>
+          <h3 id="slot-b-h"><span class="tag">B</span> <span id="cap-b" class="cap">Empty</span></h3>
+          <div class="ctrl">
+            <button type="button" id="play-b" disabled>Play</button>
+            <button type="button" id="rec-b" aria-pressed="false">Record</button>
+          </div>
+        </header>
+        <canvas id="spec-b" width="720" height="180" role="img" aria-label="Spectrogram of recording B with pitch line"></canvas>
+        <p id="verdict-b" class="verdict" aria-live="polite"></p>
+      </article>
+    </div>
+    <p id="axis-note" class="note">Brightness is energy by frequency over 3 seconds, low pitch at the bottom. The line is the pitch Praat tracked. Both panels share the same scales.</p>
+    <p id="error" class="error" role="alert" hidden></p>
+  </section>
+
+  <section class="measures" aria-labelledby="measures-h">
+    <h2 id="measures-h">What differs between A and B</h2>
+    <table id="measure-table">
+      <thead><tr><th scope="col">Measurement</th><th scope="col" class="a">A</th><th scope="col" class="b">B</th></tr></thead>
+      <tbody id="measure-body"><tr><td colspan="3" class="empty">Nothing measured yet.</td></tr></tbody>
+    </table>
+    <p class="note">Measured with Praat, not learned. Pitch depends on the speaker, so compare two clips from the same voice.</p>
+  </section>
+
+  <section class="model" aria-labelledby="model-h">
+    <h2 id="model-h">What a small model reads from the same audio</h2>
+    <div id="probs" class="probs"><p class="empty">Nothing analysed yet.</p></div>
+    <p class="note">When the model is not confident enough it says so instead of picking a label.</p>
+  </section>
+
+  <details id="build" class="limits">
+    <summary>How it is built</summary>
+    <div id="build-body">
+      <p>The browser sends raw 16-bit audio to a Python (FastAPI) server. The server computes one shared log-mel front end, measures prosody with Praat, and runs the network in <a href="https://github.com/sonos/tract">tract</a>, an inference engine written in Rust. The model is trained in PyTorch and exported to ONNX, and a test checks that tract and PyTorch agree to within 1e-3 on the same input.</p>
+      <img id="arch-img" src="/static/architecture.svg" alt="Graph of the network: convolution blocks, a projection, a bidirectional GRU, mean pooling and a linear head" width="100%" loading="lazy">
+      <table id="arch-table"><thead><tr><th scope="col">Layer</th><th scope="col">Output shape</th><th scope="col">Params</th><th scope="col">PyTorch, ms</th></tr></thead><tbody id="arch-body"></tbody></table>
+      <p id="arch-note" class="note"></p>
+    </div>
+  </details>
+
+  <details id="limits" class="limits">
+    <summary>What this model can and cannot tell you</summary>
+    <div id="limits-body"></div>
+  </details>
+</main>
+
+<footer id="latency" class="latency" aria-labelledby="latency-h">
+  <h2 id="latency-h">Latency</h2>
+  <p id="privacy" class="note">Audio is processed in memory and discarded. Only the timings below are stored: no audio, no address, no account.</p>
+  <div class="runlat">
+    <h3>This run</h3>
+    <p id="this-run">No run yet.</p>
+  </div>
+  <div class="alllat">
+    <h3 id="all-h">All runs since launch</h3>
+    <table id="all-table">
+      <thead><tr><th scope="col">Stage</th><th scope="col">Mean</th><th scope="col">p50</th><th scope="col">p95</th></tr></thead>
+      <tbody id="all-body"></tbody>
+    </table>
+    <p id="all-note" class="note"></p>
+  </div>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
