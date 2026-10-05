@@ -1,0 +1,6 @@
+__pycache__/
+.git/
+tests/
+notebooks/
+*.db
+artifacts/model.pt
