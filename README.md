@@ -81,3 +81,12 @@ Run `uvicorn app.main:app --host 0.0.0.0 --port $PORT` with `requirements.txt` i
 
 In-browser inference. The interface for it is built (a server / on-your-device switch with a plain-language
 privacy explanation) and stays disabled until the files described in `docs/WASM_STRETCH.md` exist.
+
+## License
+
+The code in this repository is released under the MIT License (see LICENSE).
+
+The audio samples in app/static/samples/ and the trained model in artifacts/ are
+not covered by that license. They derive from RAVDESS (Livingstone and Russo 2018,
+CC BY-NC-SA 4.0) and CREMA-D (Cao et al. 2014, ODbL), so they carry those terms:
+non-commercial use only, with attribution, and share-alike.
