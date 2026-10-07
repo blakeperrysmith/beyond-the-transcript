@@ -348,3 +348,6 @@ body.mode-record #pairs { display: none !important; }
 #all-table td:not(:first-child), #all-table th:not(:first-child), #cost-table td:not(:first-child), #cost-table th:not(:first-child) { padding-left: 16px; }
 
 .howto { margin-top: 44px; }
+
+.av-ring { fill: #fff; stroke: var(--ink); stroke-width: 2; }
+.av-edge { fill: none; stroke: var(--ink); stroke-width: 1; }
