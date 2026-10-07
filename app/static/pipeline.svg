@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 858" width="900" height="858" role="img" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+<title>Two independent readings of one waveform: a learned delivery classifier and Praat measurements</title>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#15222c"/></marker></defs>
+<rect width="900" height="858" fill="#ffffff"/>
+<rect x="300" y="8" width="300" height="72" rx="6" fill="#f4f6f7" stroke="#15222c" stroke-width="1.6"/>
+<text x="314" y="32" font-size="15" font-weight="700" fill="#15222c">Audio in</text>
+<text x="314" y="52" font-size="13" fill="#15222c">Microphone or sample clip</text>
+<text x="314" y="72" font-size="13" fill="#15222c">16-bit PCM at any sample rate</text>
+<path d="M450 80 L450 102" stroke="#15222c" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+<rect x="300" y="102" width="300" height="60" rx="6" fill="#f4f6f7" stroke="#15222c" stroke-width="1.6"/>
+<text x="314" y="126" font-size="15" font-weight="700" fill="#15222c">Resample to 16 kHz</text>
+<text x="314" y="146" font-size="13" fill="#15222c">Same code path in training and serving</text>
+<path d="M450 162 L450 184 L235 184 L235 208" stroke="#3a3fa5" stroke-width="1.8" fill="none" stroke-linejoin="round" marker-end="url(#ah)"/>
+<path d="M450 184 L675 184 L675 208" stroke="#b9531c" stroke-width="1.8" fill="none" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="30" y="208" width="410" height="30" rx="15" fill="#3a3fa5"/>
+<text x="235" y="228" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">Learned reading</text>
+<rect x="480" y="208" width="390" height="30" rx="15" fill="#b9531c"/>
+<text x="675" y="228" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">Measured reading</text>
+<rect x="30" y="262" width="410" height="62" rx="6" fill="#eceefb" stroke="#3a3fa5" stroke-width="1.6"/>
+<text x="44" y="286" font-size="15" font-weight="700" fill="#15222c">Log-mel features</text>
+<text x="44" y="306" font-size="13" fill="#15222c">64 bands, 3 s window (300 frames, 10 ms hop)</text>
+<path d="M235 324 L235 346" stroke="#3a3fa5" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+<rect x="30" y="346" width="410" height="214" rx="6" fill="#eceefb" stroke="#3a3fa5" stroke-width="1.6"/>
+<text x="44" y="370" font-size="15" font-weight="700" fill="#15222c">DeliveryNet</text>
+<text x="44" y="390" font-size="13" fill="#15222c">3 blocks of conv 3x3, batch norm, ReLU, max-pool</text>
+<text x="44" y="410" font-size="13" fill="#15222c">Channels 16, then 32, then 64</text>
+<text x="44" y="430" font-size="13" fill="#15222c">Linear projection to 64</text>
+<text x="44" y="450" font-size="13" fill="#15222c">Bidirectional GRU, 64 units each way</text>
+<text x="44" y="470" font-size="13" fill="#15222c">Mean over time</text>
+<text x="44" y="490" font-size="13" fill="#15222c">Linear to 6 classes</text>
+<text x="44" y="510" font-size="13" fill="#15222c">106,934 parameters</text>
+<text x="428" y="548" font-size="12" text-anchor="end" fill="#5a6a75">tract on the server, ONNX Runtime Web on your device</text>
+<path d="M235 560 L235 582" stroke="#3a3fa5" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+<rect x="30" y="582" width="410" height="62" rx="6" fill="#eceefb" stroke="#3a3fa5" stroke-width="1.6"/>
+<text x="44" y="606" font-size="15" font-weight="700" fill="#15222c">Temperature scaling, then softmax</text>
+<text x="44" y="626" font-size="13" fill="#15222c">Probabilities for 6 deliveries</text>
+<path d="M235 644 L235 666" stroke="#3a3fa5" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+<rect x="30" y="666" width="410" height="62" rx="6" fill="#eceefb" stroke="#3a3fa5" stroke-width="1.6"/>
+<text x="44" y="690" font-size="15" font-weight="700" fill="#15222c">Abstain below a confidence threshold</text>
+<text x="44" y="710" font-size="13" fill="#15222c">A label with its confidence, or "Not sure"</text>
+<rect x="480" y="262" width="390" height="62" rx="6" fill="#fcefe7" stroke="#b9531c" stroke-width="1.6"/>
+<text x="494" y="286" font-size="15" font-weight="700" fill="#15222c">Praat (Parselmouth)</text>
+<text x="494" y="306" font-size="13" fill="#15222c">Pitch and intensity tracking on the same audio</text>
+<path d="M675 324 L675 346" stroke="#b9531c" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+<rect x="480" y="346" width="390" height="214" rx="6" fill="#fcefe7" stroke="#b9531c" stroke-width="1.6"/>
+<text x="494" y="370" font-size="15" font-weight="700" fill="#15222c">Measurements, not learned</text>
+<text x="494" y="390" font-size="13" fill="#15222c">Pitch: median and range</text>
+<text x="494" y="410" font-size="13" fill="#15222c">Share of the clip that is voiced</text>
+<text x="494" y="430" font-size="13" fill="#15222c">Syllable rate</text>
+<text x="494" y="450" font-size="13" fill="#15222c">Share of the clip that is pause</text>
+<text x="494" y="470" font-size="13" fill="#15222c">Loudness range</text>
+<text x="494" y="490" font-size="13" fill="#15222c">Spectral tilt</text>
+<text x="494" y="510" font-size="13" fill="#15222c">Pitch contour, drawn on the spectrogram</text>
+<text x="858" y="548" font-size="12" text-anchor="end" fill="#5a6a75">server only</text>
+<path d="M675 560 L675 666" stroke="#b9531c" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+<rect x="480" y="666" width="390" height="62" rx="6" fill="#fcefe7" stroke="#b9531c" stroke-width="1.6"/>
+<text x="494" y="690" font-size="15" font-weight="700" fill="#15222c">Numbers for A and B</text>
+<text x="494" y="710" font-size="13" fill="#15222c">Shown side by side, with the difference</text>
+<path d="M460 262 L460 560" stroke="#5a6a75" stroke-width="1.4" stroke-dasharray="3 5"/>
+<text transform="translate(452 411) rotate(-90)" font-size="12" fill="#5a6a75" text-anchor="middle" dominant-baseline="auto">not connected</text>
+<path d="M235 728 L235 748 L675 748 M675 728 L675 748" stroke="#15222c" stroke-width="1.8" fill="none" stroke-linejoin="round"/>
+<path d="M450 748 L450 770" stroke="#15222c" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+<rect x="250" y="770" width="400" height="74" rx="6" fill="#f4f6f7" stroke="#15222c" stroke-width="1.6"/>
+<text x="264" y="794" font-size="15" font-weight="700" fill="#15222c">The page: A and B side by side</text>
+<text x="264" y="814" font-size="13" fill="#15222c">Nothing combines the two readings.</text>
+<text x="264" y="834" font-size="13" fill="#5a6a75">Praat is not an input to the model.</text>
+</svg>

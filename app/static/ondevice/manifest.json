@@ -1,0 +1,1 @@
+{ "engine": "onnxruntime-web", "model": "/model.onnx" }

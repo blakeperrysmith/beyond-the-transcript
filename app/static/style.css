@@ -10,6 +10,9 @@
   --b-line: #ffb27a;
   --scope: #0f1b2b;
   --focus: #0b6bcb;
+  --right: #1d6b41;
+  --wrong: #a52424;
+  --held: #566672;
   --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
@@ -98,6 +101,29 @@ canvas { width: 100%; height: auto; display: block; background: var(--scope); bo
 .slot.a .verdict strong { color: var(--a); }
 .slot.b .verdict strong { color: var(--b); }
 
+/* verdict: outcome chip, confidence meter with the answer line, one sentence of detail */
+.outcome .ohead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.outcome .conf { color: var(--muted); }
+.chip {
+  display: inline-block; padding: 1px 10px; border: 1.5px solid currentColor; border-radius: 999px;
+  font-size: 0.85rem; font-weight: 650; line-height: 1.5; white-space: nowrap;
+}
+.chip.right, .outcome.right .chip { color: var(--right); }
+.chip.wrong, .outcome.wrong .chip { color: var(--wrong); }
+.chip.held, .outcome.held .chip { color: var(--held); }
+.meterwrap { position: relative; margin: 8px 0 22px; max-width: 420px; }
+.meter { position: relative; height: 10px; background: rgba(21, 34, 44, 0.09); border-radius: 5px; }
+.meter > i { display: block; height: 100%; border-radius: 5px 0 0 5px; background: var(--ink); }
+.outcome.right .meter > i { background: var(--right); }
+.outcome.wrong .meter > i { background: var(--wrong); }
+.outcome.held .meter > i { background: repeating-linear-gradient(135deg, var(--held) 0 5px, #9aa7b0 5px 10px); }
+.meter .tick, .lanetrack .tick { position: absolute; top: -4px; bottom: -4px; width: 0; border-left: 2px solid var(--ink); }
+.ticklabel { position: absolute; top: 14px; transform: translateX(-50%); font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
+.odetail { margin: 0; font-size: 0.92rem; color: var(--muted); max-width: 52ch; }
+.slot.a .outcome .ohead strong { color: var(--a); }
+.slot.b .outcome .ohead strong { color: var(--b); }
+.outcome .ohead .chip { order: -1; }
+
 button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
 table { border-collapse: collapse; width: 100%; max-width: 760px; }
@@ -135,3 +161,59 @@ td.empty { text-align: left; }
   .prow { grid-template-columns: 4.5em 1fr 4em; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* what a transcript keeps */
+.transcript { margin: 18px 0 0; padding: 12px 16px; background: var(--panel); border-left: 4px solid var(--ink); max-width: 70ch; }
+.transcript p { margin: 0; }
+
+/* scoreboard */
+.scorebar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 14px; }
+.scorebar .note { margin: 0; }
+.plain-btn { font: inherit; padding: 6px 14px; border: 1px solid var(--ink); background: transparent; color: var(--ink); border-radius: 4px; cursor: pointer; }
+.plain-btn:hover:not(:disabled) { background: var(--ink); color: #fff; }
+.plain-btn:disabled { opacity: 0.5; cursor: default; }
+.scoreboard { margin-top: 16px; max-width: 760px; }
+.tally { margin: 0 0 12px; }
+.strip { margin: 6px 0 0; }
+.lane { display: grid; grid-template-columns: 6.5em 1fr; align-items: center; gap: 12px; }
+.lanename { font-size: 0.9rem; color: var(--muted); }
+.lanetrack { position: relative; height: 52px; border-bottom: 1px solid var(--rule); }
+.dot {
+  position: absolute; width: 22px; height: 22px; margin-left: -11px; display: grid; place-items: center;
+  border-radius: 50%; color: #fff; font-size: 0.8rem; font-weight: 700;
+}
+.dot.right { background: var(--right); } .dot.wrong { background: var(--wrong); }
+.dot.held { background: var(--panel); color: var(--held); border: 2px dashed var(--held); }
+.stripaxis { display: grid; grid-template-columns: 6.5em 1fr; gap: 12px; font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+.axisrow { display: flex; justify-content: space-between; }
+.clipwise { margin-top: 12px; }
+.clipwise summary { cursor: pointer; }
+.clip-table { font-size: 0.88rem; margin-top: 8px; }
+.clip-table td:not(:first-child), .clip-table th:not(:first-child) { text-align: left; padding-right: 10px; }
+
+/* who it works for */
+.groups { max-width: 760px; }
+.gaplist { margin: 6px 0 14px; padding-left: 1.2em; font-size: 0.95rem; }
+.gaplist li { margin: 4px 0; }
+.gscale { display: grid; grid-template-columns: 9em 1fr 15em; gap: 12px; font-size: 0.8rem; color: var(--muted); }
+.ghead { margin: 16px 0 4px; font-size: 0.9rem; color: var(--muted); font-weight: 650; }
+.grow { display: grid; grid-template-columns: 9em 1fr 15em; align-items: center; gap: 12px; padding: 4px 0; }
+.gname { line-height: 1.25; }
+.gtrack { position: relative; height: 20px; background: linear-gradient(var(--rule), var(--rule)) center / 100% 1px no-repeat; }
+.gci { position: absolute; top: 50%; height: 3px; margin-top: -1.5px; background: var(--ink); opacity: 0.55; }
+.gdot { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--ink); }
+.gchance { position: absolute; top: 0; bottom: 0; border-left: 1.5px dashed var(--muted); }
+.gnum { font-size: 0.85rem; color: var(--muted); }
+
+/* diagram and cost */
+.pipeline { margin: 4px 0 16px; }
+.pipeline img { background: #fff; border: 1px solid var(--rule); }
+.lhead { margin: 14px 0 2px; font-size: 0.95rem; }
+.cost { margin-top: 18px; max-width: 70ch; }
+.cost p { margin: 6px 0; }
+
+@media (max-width: 720px) {
+  .gscale { grid-template-columns: 1fr; } .gscale > span { display: none; }
+  .grow { grid-template-columns: 1fr; gap: 2px; }
+  .lane, .stripaxis { grid-template-columns: 1fr; gap: 2px; } .stripaxis > span { display: none; }
+}

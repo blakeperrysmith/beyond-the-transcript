@@ -2,7 +2,7 @@
 /* Beyond the transcript: front end.
  * In server mode, audio leaves the browser only as the raw PCM body of one POST to /api/analyze.
  * In on-device mode it does not leave at all. On-device mode needs files under /static/ondevice/
- * (see docs/WASM_STRETCH.md for the contract); without them the option is shown but disabled.
+ * (see docs/ON_DEVICE.md for the contract); without them the option is shown but disabled.
  * Nothing here uses third-party scripts, fonts or analytics.
  */
 (() => {
@@ -16,9 +16,11 @@
     manifest: null,
     ctx: null,
     slots: {
-      a: { pcm: null, sr: 0, result: null, source: null, label: "Empty", playing: null, run: null },
-      b: { pcm: null, sr: 0, result: null, source: null, label: "Empty", playing: null, run: null },
+      a: { pcm: null, sr: 0, result: null, source: null, label: "Empty", playing: null, run: null, truth: null },
+      b: { pcm: null, sr: 0, result: null, source: null, label: "Empty", playing: null, run: null, truth: null },
     },
+    pair: null, // the sample pair on screen, if any
+    board: null, // scoreboard state
     recording: null,
     stats: null,
     storage: null,
@@ -39,6 +41,8 @@
     return n;
   };
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const DS = { cremad: "CREMA-D", ravdess: "RAVDESS" };
+  const dsName = (k) => DS[k] || k;
   const fmtMs = (v) => (v == null ? "n/a" : v >= 100 ? `${Math.round(v)} ms` : `${v.toFixed(1)} ms`);
   const pct = (v) => `${Math.round(v * 100)}%`;
   const showError = (msg) => {
@@ -118,7 +122,8 @@
     d.promise = (async () => {
       try {
         const mod = await import(`${DEVICE_DIR}ondevice.js`);
-        d.eng = await mod.load({ modelUrl: `${DEVICE_DIR}${d.info.model || "model.onnx"}` });
+        const m = d.info.model || "model.onnx";
+        d.eng = await mod.load({ modelUrl: m.startsWith("/") ? m : `${DEVICE_DIR}${m}` });
         d.status = "ready";
       } catch (e) {
         d.status = "error";
@@ -155,7 +160,8 @@
       probs: Object.fromEntries(m.classes.map((c, i) => [c, p[i]])),
       prosody: null,
       mel: out.mel || null,
-      was_cropped: false,
+      was_cropped: !!out.cropped,
+      audio_seconds: f32.length / sr,
       timings: { features_ms: out.features_ms, model_ms: out.model_ms, total_ms: performance.now() - t0 },
     };
   }
@@ -172,6 +178,11 @@
     }
   }
 
+  function deviceSize() {
+    const kb = state.model && state.model.ondevice_kb;
+    return kb ? ` (about ${(kb / 1024).toFixed(1)} MB, mostly the WebAssembly runtime)` : "";
+  }
+
   function renderEngine() {
     const d = state.device;
     const onDevice = $("engine").querySelector('input[value="device"]');
@@ -184,10 +195,10 @@
     box.textContent = "";
     const para = (...kids) => box.append(el("p", {}, ...kids));
     if (state.engine === "device" && d.status === "ready") {
-      para(el("strong", { text: "Your audio stays in this browser tab. " }), "The model runs on your own device as WebAssembly, and nothing is sent to the server for the analysis.");
-      para("What you give up: the model downloads once", d.info && d.info.size_kb ? ` (about ${d.info.size_kb} KB)` : "", ", speed depends on your device, and the Praat measurements are off because Praat only runs on the server. Timings from this mode are not added to the shared statistics below.");
+      para(el("strong", { text: "Your audio stays in this browser tab. " }), "The model runs on your own device as WebAssembly (ONNX Runtime Web), and nothing is sent to the server for the analysis.");
+      para(`What you give up: a one-time download${deviceSize()}, speed that depends on your device, and the Praat measurements, which are off because Praat only runs on the server. Timings from this mode are not added to the shared statistics below.`);
     } else if (state.engine === "device") {
-      para(el("strong", { text: "Your audio stays in this browser tab. " }), "The model is being loaded onto your device. Nothing is sent to the server for the analysis.");
+      para(el("strong", { text: "Your audio stays in this browser tab. " }), `The model and its runtime are downloading to your device${deviceSize()}. Nothing is sent to the server for the analysis.`);
     } else {
       para(el("strong", { text: "Your audio is sent to this site's server. " }), "It travels over an encrypted connection, is analysed in memory and is thrown away. The server keeps one line of timings per run: no audio, no address, no account.");
       para("Praat measurements and the model both run there. It is the only mode that shows the Praat measurements.");
@@ -283,13 +294,47 @@
     if (s.run && s.run.error) { v.textContent = s.run.error; return; }
     const r = s.result;
     if (!r) return;
+    v.append(outcomeView(r, s.truth));
+  }
+
+  const OUTCOME = { right: ["\u2713", "Right"], wrong: ["\u2715", "Wrong"], held: ["\u2013", "Held back"] };
+
+  function rankedProbs(r) { return Object.entries(r.probs).sort((x, y) => y[1] - x[1]); }
+
+  function outcomeOf(r, truth) {
+    if (!truth) return "plain";
+    return r.abstained ? "held" : r.label === truth ? "right" : "wrong";
+  }
+
+  // One result as a verdict line, a confidence meter with the answer-or-abstain line, and a sentence of detail.
+  function outcomeView(r, truth) {
+    const m = state.model, thr = m.abstain_threshold;
+    const kind = outcomeOf(r, truth);
+    const [topLabel, topP] = rankedProbs(r)[0];
+    const wrap = el("div", { class: `outcome ${kind}` });
+    const head = el("div", { class: "ohead" });
+    if (kind !== "plain") head.append(el("span", { class: "chip" }, el("span", { "aria-hidden": "true", text: OUTCOME[kind][0] }), ` ${OUTCOME[kind][1]}`));
+    if (r.abstained) head.append(el("strong", { text: "Not sure" }));
+    else head.append(el("strong", { text: cap(r.label) }), el("span", { class: "conf", text: ` at ${pct(r.confidence)} confidence` }));
+    wrap.append(head);
+
+    const meter = el("div", { class: "meter", role: "img", "aria-label": `The model's top guess, ${topLabel}, has ${pct(topP)} confidence. It answers only at ${pct(thr)} or more.` },
+      el("i", { style: `width:${(topP * 100).toFixed(1)}%` }),
+      el("b", { class: "tick", style: `left:${(thr * 100).toFixed(1)}%` }));
+    wrap.append(el("div", { class: "meterwrap" }, meter, el("span", { class: "ticklabel", style: `left:${(thr * 100).toFixed(1)}%`, text: `answers from ${pct(thr)}` })));
+
+    const bits = [];
     if (r.abstained) {
-      const top = Object.entries(r.probs).sort((x, y) => y[1] - x[1])[0];
-      v.append(el("strong", { text: "Not sure." }), ` The model is not confident enough to name a delivery (its top guess is ${top[0]} at ${pct(top[1])}).`);
-    } else {
-      v.append(el("strong", { text: cap(r.label) }), ` at ${pct(r.confidence)} confidence.`);
+      bits.push(`Its top guess, ${topLabel} at ${pct(topP)}, is below the ${pct(thr)} it needs to answer.`);
+      if (truth) bits.push(`That guess would have been ${topLabel === truth ? "right" : "wrong"}.`);
+    } else if (truth && kind === "right") {
+      bits.push(`Acted as ${truth}.`);
+    } else if (truth) {
+      bits.push(`Acted as ${truth}. The model gave ${truth} ${pct(r.probs[truth] || 0)}.`);
     }
-    if (r.was_cropped) v.append(el("br"), "Clip is longer than 3 s, so the model heard the loudest 3 s and the pitch line is hidden.");
+    if (bits.length) wrap.append(el("p", { class: "odetail", text: bits.join(" ") }));
+    if (r.was_cropped) wrap.append(el("p", { class: "odetail", text: "Clip is longer than 3 s, so the model heard the loudest 3 s and the pitch line is hidden." }));
+    return wrap;
   }
 
   function fmtMeasure(key, v) {
@@ -398,7 +443,21 @@
 
   function renderAll() {
     renderSlot("a"); renderSlot("b");
-    renderMeasures(); renderProbs(); renderLatency();
+    renderMeasures(); renderProbs(); renderLatency(); renderTranscript(); renderCost();
+  }
+
+  function renderTranscript() {
+    const box = $("transcript-note");
+    const a = state.slots.a.result, b = state.slots.b.result;
+    box.textContent = "";
+    if (state.pair && (a || b)) {
+      const q = `\u201C${state.pair.sentence}\u201D`;
+      box.hidden = false;
+      box.append(el("p", {}, el("strong", { text: "What a transcript keeps. " }), `Both clips were scripted with the same sentence, so a transcript of A reads ${q} and so does a transcript of B. A system that only reads text gets identical input for the two and cannot tell them apart. Everything below the sentence on this page comes from the audio.`));
+    } else if (a && b && state.slots.a.source === "live" && state.slots.b.source === "live") {
+      box.hidden = false;
+      box.append(el("p", {}, el("strong", { text: "What a transcript keeps. " }), "If you said the same words both times, a transcript of A and B is the same text. What differs between them is only in the audio, and that is what the page measures."));
+    } else box.hidden = true;
   }
 
   function renderBanner() {
@@ -420,16 +479,26 @@
     if (!m || !m.loaded) return;
     const t = m.test || {};
     const ci = t.accuracy_ci95 ? ` (95% interval ${pct(t.accuracy_ci95[0])} to ${pct(t.accuracy_ci95[1])}, resampled by speaker)` : "";
-    const items = [];
-    if (t.accuracy != null) items.push(`On ${t.n_clips} clips from ${t.n_speakers} speakers it never heard in training, it picks the right label ${pct(t.accuracy)} of the time${ci}. Chance is ${pct(t.chance)}.`);
-    if (t.coverage_at_threshold != null) items.push(`It answers on ${pct(t.coverage_at_threshold)} of clips and abstains on the rest. When it answers, it is right ${pct(t.accuracy_when_answering)} of the time.`);
-    items.push(`Trained on ${m.datasets.join(" and ")}: scripted sentences acted by adult speakers, mostly North American English. Acted emotion is not spontaneous emotion, and it will fail on voices, accents, ages and recording conditions the corpora do not cover.`);
-    items.push("The labels describe how a sentence was delivered, not what a person feels. It should not be used to judge anyone.");
-    items.push("The author's production voice work was machine-directed speech. That is a different register from conversation, and this demo does not claim otherwise.");
-    items.push(`${m.n_params.toLocaleString()} parameters. Model licence is non-commercial because RAVDESS is CC BY-NC-SA 4.0.`);
-    const ul = el("ul");
-    items.forEach((x) => ul.append(el("li", { text: x })));
-    box.append(ul, el("p", {}, el("a", { href: "/model-card", text: "Full model card" }), " with per-group results and cross-corpus tests."));
+    const limits = [];
+    if (t.accuracy != null) limits.push(`On ${t.n_clips} clips from ${t.n_speakers} speakers it never heard in training, it picks the right label ${pct(t.accuracy)} of the time${ci}. Chance is ${pct(t.chance)}.`);
+    if (t.coverage_at_threshold != null) limits.push(`It answers on ${pct(t.coverage_at_threshold)} of clips and abstains on the rest. When it answers, it is right ${pct(t.accuracy_when_answering)} of the time.`);
+    const cc = t.cross_corpus && Object.entries(t.cross_corpus).filter(([, v]) => v && v.accuracy != null);
+    if (cc && cc.length) limits.push("Trained on one corpus and tested on the other, accuracy was " + cc.map(([k, v]) => `${pct(v.accuracy)} (${k.split("_to_").map(dsName).join(" to ")})`).join(" and ") + ". That is the better guide to how it behaves on voices and recording conditions it has not met.");
+    limits.push(`Trained on ${m.datasets.map(dsName).join(" and ")}: scripted sentences acted by adult speakers, mostly North American English. Acted emotion is not spontaneous emotion, and it will fail on voices, accents, ages and recording conditions the corpora do not cover.`);
+    limits.push("The labels describe how a sentence was delivered, not what a person feels. It should not be used to judge anyone.");
+    limits.push("The author's production voice work was machine-directed speech. That is a different register from conversation, and this demo does not claim otherwise.");
+    limits.push(`${m.n_params.toLocaleString()} parameters. Model licence is non-commercial because RAVDESS is CC BY-NC-SA 4.0.`);
+    const next = [
+      "Evaluate on spontaneous, noisy, multi-speaker speech, with a breakdown by accent, age and recording device. The corpora here carry no accent labels, so that gap cannot be measured with them.",
+      "Compare against a large pretrained speech encoder with a small head on top, to learn how much of the remaining error is a data limit and how much is a model limit.",
+      "Treat the Praat measurements as a second, independent reading, and learn when the two disagree. Today they sit side by side and nothing combines them.",
+      "Score overlapping one-second windows over a live stream and smooth over time, instead of one clip at a time.",
+      "Check calibration group by group, not only overall, and re-fit the abstain threshold on conversational data.",
+    ];
+    const h = (t0) => el("h3", { class: "lhead", text: t0 });
+    const list = (arr) => { const ul = el("ul"); arr.forEach((x) => ul.append(el("li", { text: x }))); return ul; };
+    box.append(h("Limitations"), list(limits), h("Next steps"), list(next),
+      el("p", {}, el("a", { href: "/model-card", text: "Full model card" }), " with per-group results and cross-corpus tests."));
   }
 
   // ---------- playback ----------
@@ -456,19 +525,21 @@
     });
   }
 
+  async function analyseWithEngine(pcm, sr, source) {
+    if (state.engine === "device") {
+      if (await loadDevice()) return analyseOnDevice(pcm, sr);
+      state.engine = "server"; renderEngine(); // fall back, and the panel says where it ran
+    }
+    return analyse(pcm, sr, source);
+  }
+
   async function runSlot(key, source) {
     const s = state.slots[key];
     const pcm = s.pcm, sr = s.sr;
     s.run = "pending"; s.result = null;
     renderSlot(key);
     try {
-      let r;
-      if (state.engine === "device") {
-        if (!(await loadDevice())) {
-          state.engine = "server"; renderEngine();
-          r = await analyse(pcm, sr, source); // fall back, and the panel says where it ran
-        } else r = await analyseOnDevice(pcm, sr);
-      } else r = await analyse(pcm, sr, source);
+      const r = await analyseWithEngine(pcm, sr, source);
       if (s.pcm !== pcm) return; // replaced while waiting
       s.result = r; s.run = null;
       if (r.engine !== "device" && r.stats !== undefined) state.stats = r.stats;
@@ -497,6 +568,7 @@
     const sent = $("sentence");
     sent.classList.remove("plain");
     sent.textContent = pair.sentence;
+    state.pair = pair;
     try {
       const [ca, cb] = await Promise.all([decodeClip(`/static/samples/${pair.a.file}`), decodeClip(`/static/samples/${pair.b.file}`)]);
       if (token !== state.pairToken) return;
@@ -504,6 +576,7 @@
         const s = state.slots[k];
         s.pcm = c.pcm; s.sr = c.sr; s.source = "sample";
         s.label = side.caption || `${cap(side.emotion)}, speaker ${side.speaker}`;
+        s.truth = side.emotion;
         s.result = null; s.run = null;
       }
       renderAll();
@@ -575,6 +648,7 @@
     $(`rec-${key}`).setAttribute("aria-pressed", "true");
     $(`rec-${key}`).textContent = "Stop";
     state.slots[key].label = "Recording…";
+    state.slots[key].truth = null; state.slots[key].result = null; state.pair = null;
     $("own-sentence-wrap").hidden = false;
     const sent = $("sentence");
     const typed = $("own-sentence").value.trim();
@@ -602,6 +676,7 @@
     const s = state.slots[r.key];
     s.pcm = pcm; s.sr = r.sr; s.source = "live";
     s.label = "Your recording";
+    s.truth = null; state.pair = null;
     s.result = null; s.run = null;
     renderAll();
     await runSlot(r.key, "live");
@@ -618,10 +693,163 @@
       }
       $("arch-note").textContent = `${a.n_params.toLocaleString()} parameters. ${a.timing_note}. The live serving numbers are in the Latency section.`;
     } catch (_) {
-      $("build").hidden = true;
+      $("arch-table").hidden = true;
     }
   }
 
+  // ---------- scoreboard over every sample clip ----------
+  async function runScoreboard() {
+    if (!state.manifest || (state.board && state.board.running)) return;
+    const pairs = state.manifest.pairs, total = pairs.length * 2;
+    const board = (state.board = { running: true, rows: [] });
+    const btn = $("score-run");
+    btn.disabled = true;
+    stopPlayback("a"); stopPlayback("b");
+    for (const p of pairs) {
+      for (const k of ["a", "b"]) {
+        const side = p[k];
+        $("score-status").textContent = `Scoring clip ${board.rows.length + 1} of ${total}…`;
+        try {
+          const c = await decodeClip(`/static/samples/${side.file}`);
+          const r = await analyseWithEngine(c.pcm, c.sr, "sample");
+          if (r.engine !== "device" && r.stats !== undefined) state.stats = r.stats;
+          board.rows.push({ pair: p, side, key: k, result: r });
+        } catch (e) {
+          board.rows.push({ pair: p, side, key: k, error: e.message });
+          if (/Slow down/.test(e.message)) break;
+        }
+        renderBoard();
+      }
+    }
+    board.running = false;
+    btn.disabled = false;
+    btn.textContent = "Score all clips again";
+    $("score-status").textContent = "";
+    renderBoard();
+    renderAll();
+  }
+
+  function renderBoard() {
+    const box = $("scoreboard"), bd = state.board;
+    box.textContent = "";
+    if (!bd || !bd.rows.length) { box.hidden = true; return; }
+    box.hidden = false;
+    const rows = bd.rows.filter((r) => r.result);
+    const tally = { right: 0, wrong: 0, held: 0 };
+    for (const r of rows) tally[outcomeOf(r.result, r.side.emotion)]++;
+    const answered = tally.right + tally.wrong;
+    const t = (state.model && state.model.test) || {};
+    box.append(el("p", { class: "tally" },
+      el("strong", { text: `${tally.right} right, ${tally.wrong} wrong, ${tally.held} held back` }),
+      ` of ${rows.length} clips.` + (answered ? ` Right on ${tally.right} of the ${answered} it answered.` : "")));
+
+    // strip plot: confidence on the x axis, one lane per corpus
+    const thr = state.model.abstain_threshold;
+    const corpora = [...new Set(rows.map((r) => r.side.corpus || "Clips"))];
+    const strip = el("div", { class: "strip", role: "img", "aria-label": "Each clip as a mark placed by the model's confidence in its top guess, grouped by corpus. Marks left of the answer line were held back." });
+    for (const c of corpora) {
+      const lane = el("div", { class: "lane" }, el("span", { class: "lanename", text: c }));
+      const track = el("div", { class: "lanetrack" }, el("b", { class: "tick", style: `left:${(thr * 100).toFixed(1)}%` }));
+      rows.filter((r) => (r.side.corpus || "Clips") === c).forEach((r, i) => {
+        const kind = outcomeOf(r.result, r.side.emotion);
+        const topP = rankedProbs(r.result)[0][1];
+        const mark = el("span", { class: `dot ${kind}`, style: `left:${(topP * 100).toFixed(1)}%;top:${i % 2 ? 24 : 4}px`, title: `${r.pair.sentence} (${r.key.toUpperCase()}): acted ${r.side.emotion}, ${r.result.abstained ? "held back" : "said " + r.result.label}, ${pct(topP)}` }, el("span", { "aria-hidden": "true", text: OUTCOME[kind][0] }));
+        track.append(mark);
+      });
+      lane.append(track);
+      strip.append(lane);
+    }
+    strip.append(el("div", { class: "stripaxis" }, el("span"), el("div", { class: "axisrow" }, el("span", { text: "0%" }), el("span", { text: "Model confidence in its top guess" }), el("span", { text: "100%" }))));
+    box.append(strip);
+    box.append(el("p", { class: "note", text: `Marks left of the line were held back. ${rows.length} clips is too few to measure accuracy; the held-out test${t.n_clips ? ` (${t.n_clips} clips from ${t.n_speakers} speakers)` : ""} does that. This shows what right, wrong and held back look like, and how confidence relates to them.` }));
+
+    const det = el("details", { class: "clipwise" }, el("summary", { text: "Clip by clip" }));
+    const tb = el("tbody");
+    for (const r of bd.rows) {
+      const head = `${r.pair.sentence} (${r.key.toUpperCase()}, ${r.side.corpus || ""})`;
+      if (!r.result) { tb.append(el("tr", {}, el("td", { text: head }), el("td", { colspan: "4", class: "empty", text: r.error || "Could not analyse" }))); continue; }
+      const kind = outcomeOf(r.result, r.side.emotion), [topLabel, topP] = rankedProbs(r.result)[0];
+      tb.append(el("tr", {}, el("td", { text: head }), el("td", { text: cap(r.side.emotion) }),
+        el("td", { text: r.result.abstained ? `Not sure (${topLabel})` : cap(r.result.label) }),
+        el("td", { text: pct(topP) }),
+        el("td", {}, el("span", { class: `chip ${kind}` }, el("span", { "aria-hidden": "true", text: OUTCOME[kind][0] }), ` ${OUTCOME[kind][1]}`))));
+    }
+    det.append(el("table", { class: "clip-table" }, el("thead", {}, el("tr", {}, ...["Clip", "Acted as", "Model said", "Confidence", "Result"].map((h) => el("th", { scope: "col", text: h })))), tb));
+    box.append(det);
+  }
+
+  // ---------- accuracy by group ----------
+  const GROUP_NAMES = { dataset: "Corpus", sex: "Sex", age_bucket: "Age", race: "Race", ethnicity: "Ethnicity" };
+
+  const gname = (grouping, name) => (grouping === "dataset" ? dsName(name) : cap(String(name)));
+
+  function renderGroups() {
+    const sec = $("groups"), body = $("groups-body");
+    const t = state.model && state.model.test, g = t && t.groups;
+    body.textContent = "";
+    const names = g ? Object.keys(GROUP_NAMES).filter((k) => g[k] && Object.keys(g[k]).length) : [];
+    if (!names.length) { sec.hidden = true; return; }
+    sec.hidden = false;
+
+    // plain-language summary, computed from the numbers
+    const gaps = [];
+    for (const k of names) {
+      const ent = Object.entries(g[k]).filter(([, v]) => v.n_speakers >= 2 && v.accuracy != null);
+      if (ent.length < 2) continue;
+      ent.sort((x, y) => y[1].accuracy - x[1].accuracy);
+      const [hiN, hi] = ent[0], [loN, lo] = ent[ent.length - 1];
+      const ci = (v) => (v.ci95 && v.ci95[0] != null && v.ci95[1] != null ? v.ci95 : null);
+      const overlap = ci(hi) && ci(lo) ? ci(lo)[1] >= ci(hi)[0] : null;
+      gaps.push(`${GROUP_NAMES[k]}: ${gname(k, hiN)} ${pct(hi.accuracy)} against ${gname(k, loN)} ${pct(lo.accuracy)}, a gap of ${Math.round((hi.accuracy - lo.accuracy) * 100)} points. ` +
+        (overlap === null ? "The interval is unavailable." : overlap ? "The intervals overlap, so this is not evidence of a difference." : "The intervals do not overlap, so this gap is worth a closer look."));
+    }
+    if (gaps.length) {
+      const ul = el("ul", { class: "gaplist" });
+      gaps.forEach((x) => ul.append(el("li", { text: x })));
+      body.append(el("p", { class: "note", text: "Largest gap within each grouping:" }), ul);
+    }
+
+    const scale = el("div", { class: "gscale" }, el("span"), el("div", { class: "axisrow" }, el("span", { text: "0%" }), el("span", { text: "accuracy" }), el("span", { text: "100%" })), el("span"));
+    const table = el("div", { class: "grows" });
+    for (const k of names) {
+      table.append(el("h3", { class: "ghead", text: GROUP_NAMES[k] }));
+      for (const [name, v] of Object.entries(g[k])) {
+        const ci = v.ci95 && v.ci95[0] != null && v.ci95[1] != null ? v.ci95 : null;
+        const track = el("div", { class: "gtrack", role: "img", "aria-label": `${name}: ${pct(v.accuracy)}${ci ? `, interval ${pct(ci[0])} to ${pct(ci[1])}` : ""}` });
+        if (t.chance != null) track.append(el("b", { class: "gchance", style: `left:${(t.chance * 100).toFixed(1)}%` }));
+        if (ci) track.append(el("i", { class: "gci", style: `left:${(ci[0] * 100).toFixed(1)}%;width:${((ci[1] - ci[0]) * 100).toFixed(1)}%` }));
+        track.append(el("span", { class: "gdot", style: `left:${(v.accuracy * 100).toFixed(1)}%` }));
+        const few = v.n_speakers < 3 ? ", few speakers" : "";
+        table.append(el("div", { class: "grow" }, el("span", { class: "gname", text: gname(k, name) }), track,
+          el("span", { class: "gnum", text: `${pct(v.accuracy)}: ${v.n_speakers} ${v.n_speakers === 1 ? "speaker" : "speakers"}, ${v.n_clips} clips${few}` })));
+      }
+    }
+    body.append(scale, table);
+  }
+
+  // ---------- what an analysis costs ----------
+  // Assumption, stated on the page: a small always-on instance at this list price, running flat out.
+  const INSTANCE_USD_PER_MONTH = 7;
+  const WINDOW_S_MODEL = 3; // the model hears at most 3 s per analysis
+
+  function renderCost() {
+    const wrap = $("cost-wrap"), body = $("cost-body");
+    const sv = state.stats && state.stats.server;
+    body.textContent = "";
+    if (!sv || !sv.n) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+    const secs = sv.mean / 1000;
+    const perSecUsd = INSTANCE_USD_PER_MONTH / (30 * 24 * 3600);
+    const perClip = secs * perSecUsd;
+    const rtf = WINDOW_S_MODEL / secs;
+    const usd = (v) => (v >= 1 ? `$${v.toFixed(2)}` : v >= 0.01 ? `$${v.toFixed(3)}` : `$${v.toPrecision(2)}`);
+    body.append(
+      el("p", {}, `Mean server time per analysis is ${fmtMs(sv.mean)}, Praat included. One worker therefore handles about ${rtf >= 10 ? Math.round(rtf) : rtf.toFixed(1)} seconds of audio for every second that passes (clips of 3 seconds).`),
+      el("p", {}, `Priced as a small always-on server at $${INSTANCE_USD_PER_MONTH} a month and kept fully busy, that is about ${usd(perClip * 1e6)} per million analyses, or ${usd(perClip * (3600 / WINDOW_S_MODEL) * 1000)} per thousand hours of audio.`),
+      el("p", { class: "note", text: "Real traffic is never flat out, and this leaves out bandwidth, storage, monitoring and the time it took to build. It prices this one small model on short clips, nothing larger. When the analysis runs on your device it costs the host nothing per run." }));
+  }
+
+  // ---------- limits and next steps ----------
   // ---------- init ----------
   function wire() {
     document.querySelectorAll('#engine input[name="engine"]').forEach((i) =>
@@ -630,6 +858,7 @@
       $(`play-${k}`).addEventListener("click", () => (state.slots[k].playing ? (stopPlayback(k), renderSlot(k)) : playSlot(k)));
       $(`rec-${k}`).addEventListener("click", () => toggleRecord(k));
     }
+    $("score-run").addEventListener("click", runScoreboard);
     $("own-sentence").addEventListener("input", (e) => {
       const sent = $("sentence");
       const v = e.target.value.trim();
@@ -646,7 +875,7 @@
     } catch (_) {
       state.model = { loaded: false };
     }
-    renderBanner(); renderLimits(); probeDevice();
+    renderBanner(); renderLimits(); renderGroups(); probeDevice();
     try {
       const s = await getJSON("/api/stats");
       state.stats = s.stats; state.storage = s.storage; state.hardware = s.hardware; state.tractVersion = s.tract_version;

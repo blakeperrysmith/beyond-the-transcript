@@ -11,6 +11,7 @@ import base64
 import hashlib
 import json
 import logging
+import mimetypes
 import os
 import platform
 import threading
@@ -21,12 +22,14 @@ from pathlib import Path
 
 import numpy as np
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from scipy.special import softmax
 
 from btt import __version__
+from btt import mdlite
+from btt.modelcard import render_model_card
 from btt.features import MAX_SECONDS, fit_window, log_mel, to_16k
 from btt.prosody import DESCRIPTIONS, measure
 from btt.tract_runtime import TractModel, tract_version
@@ -34,6 +37,8 @@ from btt.tract_runtime import TractModel, tract_version
 from .store import open_store
 
 log = logging.getLogger("btt.app")
+mimetypes.add_type("application/wasm", ".wasm")  # streaming WebAssembly compile needs this type
+mimetypes.add_type("text/javascript", ".mjs")
 ROOT = Path(__file__).resolve().parent
 ARTIFACTS = Path(os.environ.get("BTT_ARTIFACTS", ROOT.parent / "artifacts"))
 STATIC = ROOT / "static"
@@ -52,7 +57,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Beyond the transcript", version=__version__, docs_url=None, redoc_url=None, lifespan=lifespan)
 
 _compute_lock = threading.Lock()  # Praat and the tract runnable are guarded; numpy parts run freely
-_state: dict = {"model": None, "meta": None, "metrics": None, "store": None, "served": 0}
+_state: dict = {"model": None, "meta": None, "metrics": None, "cross": None, "store": None, "served": 0}
 _hits: dict[str, deque] = defaultdict(deque)
 
 
@@ -76,6 +81,11 @@ def load_model(artifacts: Path | None = None) -> bool:
     _state["meta"] = json.loads(meta.read_text())
     mp = d / "metrics.json"
     _state["metrics"] = json.loads(mp.read_text()) if mp.exists() else {}
+    cp = d / "metrics_cross_corpus.json"
+    try:
+        _state["cross"] = json.loads(cp.read_text()) if cp.exists() else None
+    except ValueError:
+        _state["cross"] = None
     _state["model"] = TractModel(onnx)
     return True
 
@@ -115,13 +125,36 @@ def health() -> dict:
     return {"ok": True, "model_loaded": _state["model"] is not None}
 
 
+def _json_safe(o):
+    """Starlette refuses NaN and Infinity. Bootstrap intervals are NaN when a group has one speaker."""
+    if isinstance(o, float):
+        return o if np.isfinite(o) else None
+    if isinstance(o, dict):
+        return {k: _json_safe(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [_json_safe(v) for v in o]
+    return o
+
+
+def _ondevice_kb() -> int | None:
+    """Download size of the on-device engine: the runtime files plus the model. None when it is not installed."""
+    d = STATIC / "ondevice"
+    if not (d / "manifest.json").exists():
+        return None
+    total = sum(p.stat().st_size for p in d.rglob("*") if p.is_file() and p.name not in {"manifest.json", ".gitkeep"} and not p.name.startswith("LICENSE"))
+    model = ARTIFACTS / "model.onnx"
+    if model.exists():
+        total += model.stat().st_size
+    return int(round(total / 1024))
+
+
 @app.get("/api/model")
 def model_info() -> dict:
     meta, metrics = _state["meta"], _state["metrics"] or {}
     if meta is None:
         return {"loaded": False}
     t = metrics.get("test", {})
-    return {
+    return _json_safe({
         "loaded": True,
         "classes": meta["classes"],
         "data_source": meta["data_source"],
@@ -137,11 +170,15 @@ def model_info() -> dict:
             "chance": t.get("chance_accuracy"),
             "coverage_at_threshold": t.get("coverage_at_threshold"),
             "accuracy_when_answering": t.get("accuracy_when_answering"),
+            "groups": {k: v for k, v in (t.get("groups") or {}).items() if k != "sentence"},
+            "per_speaker": t.get("per_speaker"),
+            "cross_corpus": _state["cross"],
         },
+        "ondevice_kb": _ondevice_kb(),
         "tract_version": tract_version(),
         "hardware": _cpu_description(),
         "prosody_descriptions": DESCRIPTIONS,
-    }
+    })
 
 
 @app.post("/api/analyze")
@@ -214,6 +251,7 @@ async def analyze(request: Request) -> JSONResponse:
             "prosody": pros,
             "mel": _mel_preview(feat),
             "clip_seconds": float(min(dur, 3.0)),
+            "audio_seconds": float(dur),
             "was_cropped": bool(feat_full.shape[1] > feat.shape[1]),
             "timings": timings,
             "stats": _safe_stats(),
@@ -255,12 +293,36 @@ def stats() -> dict:
     return {"stats": _safe_stats(), "storage": _storage_info(), "hardware": _cpu_description(), "tract_version": tract_version()}
 
 
-@app.get("/model-card")
-def model_card() -> FileResponse:
+@app.get("/model.onnx")
+def model_file() -> FileResponse:
+    """The same file the server runs. The on-device engine downloads it, so it is public like the rest of the repo."""
+    f = ARTIFACTS / "model.onnx"
+    if not f.exists():
+        raise HTTPException(404, "No model yet.")
+    return FileResponse(f, media_type="application/octet-stream")
+
+
+def _card_markdown() -> str:
+    """Rebuilt from the metrics files on every request, so the card always matches the numbers the page shows."""
+    if _state["meta"] and _state["metrics"] and "test" in _state["metrics"]:
+        try:
+            return render_model_card(_state["meta"], _state["metrics"], _state["cross"])
+        except Exception as e:  # noqa: BLE001
+            log.warning("could not render model card from metrics: %s", type(e).__name__)
     card = ARTIFACTS / "MODEL_CARD.md"
-    if not card.exists():
-        raise HTTPException(404, "No model card yet.")
-    return FileResponse(card, media_type="text/markdown; charset=utf-8")
+    if card.exists():
+        return card.read_text()
+    raise HTTPException(404, "No model card yet.")
+
+
+@app.get("/model-card")
+def model_card() -> HTMLResponse:
+    return HTMLResponse(mdlite.PAGE.format(body=mdlite.to_html(_card_markdown())))
+
+
+@app.get("/model-card.md")
+def model_card_md() -> PlainTextResponse:
+    return PlainTextResponse(_card_markdown(), media_type="text/markdown; charset=utf-8")
 
 
 @app.get("/")

@@ -33,6 +33,12 @@
     <h2 id="pairs-h">Same sentence, spoken two ways</h2>
     <div id="pairlist" class="pairlist"></div>
     <p id="pairs-note" class="note"></p>
+    <p class="note">The right answer here is the delivery the actor was asked to perform. A clip counts as right when the model names that delivery.</p>
+    <div class="scorebar">
+      <button type="button" id="score-run" class="plain-btn">Score all clips</button>
+      <span id="score-status" class="note" role="status"></span>
+    </div>
+    <div id="scoreboard" class="scoreboard" hidden></div>
   </section>
 
   <section id="stage" class="stage" aria-labelledby="sentence-h">
@@ -70,6 +76,7 @@
         <p id="verdict-b" class="verdict" aria-live="polite"></p>
       </article>
     </div>
+    <div id="transcript-note" class="transcript" hidden></div>
     <p id="axis-note" class="note">Brightness is energy by frequency over 3 seconds, low pitch at the bottom. The line is the pitch Praat tracked. Both panels share the same scales.</p>
     <p id="error" class="error" role="alert" hidden></p>
   </section>
@@ -89,18 +96,29 @@
     <p class="note">When the model is not confident enough it says so instead of picking a label.</p>
   </section>
 
+  <section id="groups" class="groups" aria-labelledby="groups-h" hidden>
+    <h2 id="groups-h">Does it work equally well for everyone?</h2>
+    <p id="groups-lede" class="note"></p>
+    <div id="groups-body"></div>
+    <p class="note">Accuracy on speakers the model never heard in training. The dot is the accuracy, the line is a 95% interval resampled by speaker, the dashed line is chance. Where two intervals overlap, this data cannot show a difference in either direction. Sex comes from both corpora; age, race and ethnicity come only from CREMA-D's metadata. Demographic labels are used for evaluation only. The app never estimates them.</p>
+  </section>
+
   <details id="build" class="limits">
     <summary>How it is built</summary>
     <div id="build-body">
+      <figure class="pipeline">
+        <img id="pipe-img" src="/static/pipeline.svg" alt="Diagram. The waveform is split into two independent readings: a learned path (log-mel features, a small recurrent network, temperature scaling, an abstain threshold) and a measured path (Praat pitch, rhythm and loudness). Both are shown side by side. Praat does not feed the classifier." width="100%" loading="lazy">
+        <figcaption class="note">Two readings of the same waveform. They share only the audio. Today the server runs them one after the other, because Praat is not safe to run twice at once, so the total is the sum of the two.</figcaption>
+      </figure>
       <p>The browser sends raw 16-bit audio to a Python (FastAPI) server. The server computes one shared log-mel front end, measures prosody with Praat, and runs the network in <a href="https://github.com/sonos/tract">tract</a>, an inference engine written in Rust. The model is trained in PyTorch and exported to ONNX, and a test checks that tract and PyTorch agree to within 1e-3 on the same input.</p>
-      <img id="arch-img" src="/static/architecture.svg" alt="Graph of the network: convolution blocks, a projection, a bidirectional GRU, mean pooling and a linear head" width="100%" loading="lazy">
+      <p>The on-device option runs that same ONNX file in the browser with ONNX Runtime Web (WebAssembly). The feature code is a JavaScript port of the Python one, and a test requires the two to agree to 1e-3 on the log-mel features before the model sees them.</p>
       <table id="arch-table"><thead><tr><th scope="col">Layer</th><th scope="col">Output shape</th><th scope="col">Params</th><th scope="col">PyTorch, ms</th></tr></thead><tbody id="arch-body"></tbody></table>
       <p id="arch-note" class="note"></p>
     </div>
   </details>
 
   <details id="limits" class="limits">
-    <summary>What this model can and cannot tell you</summary>
+    <summary>Limitations and next steps</summary>
     <div id="limits-body"></div>
   </details>
 </main>
@@ -119,6 +137,10 @@
       <tbody id="all-body"></tbody>
     </table>
     <p id="all-note" class="note"></p>
+  </div>
+  <div class="cost" id="cost-wrap" hidden>
+    <h3>What an analysis costs</h3>
+    <div id="cost-body"></div>
   </div>
 </footer>
 

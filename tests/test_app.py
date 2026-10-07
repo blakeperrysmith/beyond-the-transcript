@@ -115,3 +115,45 @@ def test_storage_reported(client):
     c, _ = client
     s = c.get("/api/stats").json()["storage"]
     assert s["kind"] == "sqlite" and s["persistent"] is False
+
+
+def test_model_info_has_groups_and_survives_nan(client):
+    c, m = client
+    # bootstrap intervals are NaN for a one-speaker group; Starlette refuses NaN, so the API must not emit it
+    m._state["metrics"]["test"]["groups"] = {"sex": {"male": {"n_clips": 3, "n_speakers": 1, "accuracy": 0.5, "ci95": [float("nan"), float("nan")], "macro_f1": 0.4}}}
+    r = c.get("/api/model")
+    assert r.status_code == 200
+    j = r.json()
+    assert j["test"]["groups"]["sex"]["male"]["ci95"] == [None, None]
+    assert "ondevice_kb" in j and "cross_corpus" in j["test"]
+
+
+def test_model_file_and_card(client):
+    c, m = client
+    r = c.get("/model.onnx")
+    assert r.status_code == 200 and len(r.content) > 1000
+    html = c.get("/model-card")
+    assert html.status_code == 200 and "text/html" in html.headers["content-type"]
+    assert "<h1>" in html.text and "Limitations and next steps" in html.text
+    md = c.get("/model-card.md")
+    assert md.status_code == 200 and md.text.startswith(("#", ">"))
+
+
+def test_card_renders_cross_corpus_when_present(client):
+    c, m = client
+    m._state["cross"] = {"ravdess_to_cremad": {"n_test_clips": 100, "n_test_speakers": 9, "accuracy": 0.2, "accuracy_ci95_speaker_bootstrap": [0.1, 0.3]}}
+    md = c.get("/model-card.md").text
+    assert "Trained on one corpus, tested on the other" in md and "RAVDESS | CREMA-D" in md
+
+
+def test_analyze_reports_audio_seconds(client):
+    c, _ = client
+    j = post(c, pcm(2.5)).json()
+    assert abs(j["audio_seconds"] - 2.5) < 0.01 and j["clip_seconds"] == 2.5
+
+
+def test_wasm_mime_type(client):
+    c, _ = client
+    r = c.get("/static/ondevice/ort/ort-wasm-simd-threaded.wasm", headers={"Range": "bytes=0-3"})
+    assert r.headers["content-type"].startswith("application/wasm")
+    assert c.get("/static/ondevice/manifest.json").json()["engine"] == "onnxruntime-web"
