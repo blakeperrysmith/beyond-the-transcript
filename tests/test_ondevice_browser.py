@@ -74,6 +74,7 @@ def test_wasm_matches_server(server, sr):
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
         page.goto(server + "/")
+        assert page.evaluate("crossOriginIsolated") is True  # Firefox needs this for the shared-memory WebAssembly runtime
         got = page.evaluate(
             """async ([samples, sr]) => {
               const mod = await import('/static/ondevice/ondevice.js');

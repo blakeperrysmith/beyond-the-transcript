@@ -126,8 +126,10 @@
         d.eng = await mod.load({ modelUrl: m.startsWith("/") ? m : `${DEVICE_DIR}${m}` });
         d.status = "ready";
       } catch (e) {
+        console.error("On-device load failed:", e);
         d.status = "error";
-        d.error = "The on-device model could not be loaded in this browser.";
+        const why = e && e.message ? ` Reason: ${String(e.message).slice(0, 200)}.` : "";
+        d.error = `The on-device model could not be loaded in this browser.${why}`;
       }
       d.promise = null;
       renderEngine();

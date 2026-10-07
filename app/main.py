@@ -120,6 +120,16 @@ def _mel_preview(feat: np.ndarray) -> str:
     return base64.b64encode(u8.astype(np.uint8).tobytes()).decode()
 
 
+@app.middleware("http")
+async def isolate(request: Request, call_next):
+    """Cross-origin isolation. The WebAssembly runtime is built with shared memory, which Firefox only allows on an
+    isolated page. Everything on this site is same-origin, so nothing else is affected."""
+    resp = await call_next(request)
+    resp.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    resp.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+    return resp
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"ok": True, "model_loaded": _state["model"] is not None}

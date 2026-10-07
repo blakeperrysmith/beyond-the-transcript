@@ -5,16 +5,25 @@ import { featurize, melPreview, N_MELS, WIN_FRAMES } from "./features.js";
 
 const BASE = new URL("./ort/", import.meta.url);
 
+// Each step is named in its error, so a failure says which one it was (runtime files, model download, session).
+async function step(name, fn) {
+  try { return await fn(); } catch (e) { throw new Error(`${name}: ${e && e.message ? e.message : e}`); }
+}
+
 export async function load({ modelUrl }) {
-  const ort = await import(new URL("ort.wasm.min.mjs", BASE).href);
+  const ort = await step("runtime script", () => import(new URL("ort.wasm.min.mjs", BASE).href));
   ort.env.wasm.wasmPaths = BASE.href;
   ort.env.wasm.numThreads = 1; // no cross-origin isolation needed, and the model is tiny
   ort.env.wasm.proxy = false;
-  const bytes = new Uint8Array(await (await fetch(modelUrl)).arrayBuffer());
-  const session = await ort.InferenceSession.create(bytes, { executionProviders: ["wasm"], graphOptimizationLevel: "all" });
+  const bytes = await step("model download", async () => {
+    const r = await fetch(modelUrl);
+    if (!r.ok) throw new Error(`${modelUrl} returned ${r.status}`);
+    return new Uint8Array(await r.arrayBuffer());
+  });
+  const session = await step("WebAssembly runtime", () => ort.InferenceSession.create(bytes, { executionProviders: ["wasm"], graphOptimizationLevel: "all" }));
   const inName = session.inputNames[0], outName = session.outputNames[0];
   const feed = (data) => ({ [inName]: new ort.Tensor("float32", data, [1, 1, N_MELS, WIN_FRAMES]) });
-  await session.run(feed(new Float32Array(N_MELS * WIN_FRAMES))); // warm-up, so the first real run is not charged for start-up
+  await step("first run", () => session.run(feed(new Float32Array(N_MELS * WIN_FRAMES)))); // warm-up, so the first real run is not charged for start-up
 
   return {
     engine: "onnxruntime-web",

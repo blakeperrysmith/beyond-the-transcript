@@ -157,3 +157,10 @@ def test_wasm_mime_type(client):
     r = c.get("/static/ondevice/ort/ort-wasm-simd-threaded.wasm", headers={"Range": "bytes=0-3"})
     assert r.headers["content-type"].startswith("application/wasm")
     assert c.get("/static/ondevice/manifest.json").json()["engine"] == "onnxruntime-web"
+
+
+def test_cross_origin_isolation_headers(client):
+    c, _ = client
+    for path in ("/", "/api/health", "/static/app.js"):
+        h = c.get(path).headers
+        assert h["cross-origin-opener-policy"] == "same-origin" and h["cross-origin-embedder-policy"] == "require-corp"
