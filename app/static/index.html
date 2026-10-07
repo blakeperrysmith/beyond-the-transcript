@@ -7,24 +7,69 @@
 <meta name="description" content="Play two recordings of the same sentence and see what the audio carries that a transcript drops.">
 <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
-<a class="skip" href="#stage">Skip to the comparison</a>
+<body class="mode-samples">
+<a class="skip" href="#outputs">Skip to the comparison</a>
 
 <header class="top">
-  <h1>Beyond the transcript</h1>
-  <p class="lede">A transcript keeps the words and drops the rest. Two recordings of the same sentence can read identically as text and mean opposite things.</p>
-  <p class="lede">This is a small demo, built to show how I think about speech: what the audio carries, how a small model and measured acoustics read it, and what I would check before trusting either. It is a toy, not a product.</p>
+  <div class="herogrid">
+    <div class="herotext">
+      <h1>Beyond the transcript</h1>
+      <p class="lede">A transcript keeps the words and drops the rest. Two recordings of the same sentence can read identically as text and mean very different things.</p>
+      <p class="lede">This is a small demo, built to show how I think about speech: what the audio carries, how a small model and measured acoustics read it, and what I would check before trusting either. It is a toy, not a product.</p>
+    </div>
+    <figure class="venn">
+      <svg viewBox="0 0 360 330" role="img" aria-labelledby="venn-t venn-d">
+        <title id="venn-t">Three overlapping circles</title>
+        <desc id="venn-d">Language (linguistics and NLP), systems (speech and ML engineering) and judgement (product and responsible AI) overlap in the middle, where the work is hearing past the transcript.</desc>
+        <circle cx="132" cy="120" r="100" class="vc v1"/>
+        <circle cx="228" cy="120" r="100" class="vc v2"/>
+        <circle cx="180" cy="203" r="100" class="vc v3"/>
+        <g class="vl" text-anchor="middle">
+          <text x="84" y="104" class="vh">Language</text>
+          <text x="84" y="122">Linguistics</text>
+          <text x="84" y="138">NLP</text>
+          <text x="276" y="104" class="vh">Systems</text>
+          <text x="276" y="122">Speech</text>
+          <text x="276" y="138">ML engineering</text>
+          <text x="180" y="266" class="vh">Judgement</text>
+          <text x="180" y="284">Product</text>
+          <text x="180" y="300">Responsible AI</text>
+          <text x="180" y="148" class="vc-mid">Hearing past</text>
+          <text x="180" y="163" class="vc-mid">the transcript</text>
+        </g>
+      </svg>
+    </figure>
+  </div>
   <p id="banner" class="banner" role="status" hidden></p>
 </header>
 
 <main>
+  <section id="principles" aria-labelledby="principles-h">
+    <h2 id="principles-h">What this is built around</h2>
+    <ul id="cards" class="cards"></ul>
+  </section>
+
   <section class="howto" aria-labelledby="howto-h">
     <h2 id="howto-h">How to use this</h2>
-    <ol>
-      <li><strong>Pick a pair</strong> of recordings of the same sentence, press Play on A and B, and read what the model and Praat make of each. Or press Score all clips to run every pair at once.</li>
-      <li><strong>Or record your own.</strong> Say one sentence twice, delivered two different ways, using Record on A and on B.</li>
-      <li><strong>Choose where it runs.</strong> On your device, nothing you record leaves the browser tab.</li>
-    </ol>
+    <fieldset class="seg" id="mode">
+      <legend class="sr">What to compare</legend>
+      <label><input type="radio" name="mode" value="samples" checked><span>Sample pairs</span></label>
+      <label><input type="radio" name="mode" value="record"><span>Record your own</span></label>
+    </fieldset>
+    <div id="howto-samples">
+      <ol>
+        <li>Pick a pair. Press Play on A and on B, or let it play, and read what the model and Praat make of each.</li>
+        <li>Or press Score all clips to run every sample at once and see how often it is correct, incorrect or unsure.</li>
+      </ol>
+    </div>
+    <div id="howto-record">
+      <ol>
+        <li>Plan one sentence you will say twice.</li>
+        <li>Record it once, then tap the delivery you performed. It shows as saved.</li>
+        <li>Record it again in a different delivery and tap that one. The model then scores both against what you said you did.</li>
+      </ol>
+      <p class="privacy-note"><strong>Your recording stays yours.</strong> Run it on your device and the audio never leaves this browser tab. On the server it is analysed in memory and discarded. <button type="button" class="linkbtn" data-card="privacy">Read the privacy details</button></p>
+    </div>
   </section>
 
   <section id="engine" class="engine" aria-labelledby="engine-h">
@@ -36,7 +81,6 @@
     </fieldset>
     <div id="engine-text" class="engine-text" aria-live="polite"></div>
     <p id="engine-status" class="note"></p>
-    <p class="note">Either way, your browser asks before it uses the microphone, a recording lives only until you replace it or leave, and nothing you record is used to train anything.</p>
   </section>
 
   <section id="pairs" class="pairs" aria-labelledby="pairs-h" hidden>
@@ -51,81 +95,116 @@
     <div id="scoreboard" class="scoreboard" hidden></div>
   </section>
 
-  <section id="stage" class="stage" aria-labelledby="sentence-h">
-    <h2 id="sentence-h" class="sr">The sentence</h2>
-    <div id="sentence-wrap">
-      <p id="sentence" class="sentence">Choose a pair above, or record the same sentence twice in two different ways.</p>
-      <label id="own-sentence-wrap" class="own-sentence" hidden>
-        <span>The sentence you will say both times</span>
-        <input id="own-sentence" type="text" maxlength="120" placeholder="For example: I didn't say that">
-      </label>
+  <section id="record-plan" class="recplan" aria-labelledby="recplan-h">
+    <h2 id="recplan-h">Plan your sentence</h2>
+    <label id="own-sentence-wrap" class="own-sentence">
+      <span>The sentence you will say both times</span>
+      <input id="own-sentence" type="text" maxlength="120" placeholder="For example: I didn't say that" autocomplete="off">
+    </label>
+  </section>
+
+  <section id="outputs" class="outputs" aria-labelledby="sentence-h">
+    <h2 id="sentence-h" class="sr">The sentence and the results</h2>
+    <p id="sentence" class="sentence">Choose a pair above, or record the same sentence twice in two different ways.</p>
+
+    <div class="cols" id="cols">
+      <div class="cell head a" id="slot-a">
+        <h3 id="slot-a-h"><span class="tag">A</span> <span id="cap-a" class="cap">Empty</span></h3>
+        <div class="ctrl">
+          <button type="button" id="play-a" disabled>Play</button>
+          <button type="button" id="rec-a" class="recbtn" aria-pressed="false">Record</button>
+        </div>
+        <div id="ovals-a" class="ovals"></div>
+      </div>
+      <div class="cell head b" id="slot-b">
+        <h3 id="slot-b-h"><span class="tag">B</span> <span id="cap-b" class="cap">Empty</span></h3>
+        <div class="ctrl">
+          <button type="button" id="play-b" disabled>Play</button>
+          <button type="button" id="rec-b" class="recbtn" aria-pressed="false">Record</button>
+        </div>
+        <div id="ovals-b" class="ovals"></div>
+      </div>
+
+      <h3 class="rowtitle">Spectrogram and pitch</h3>
+      <div class="cell a"><canvas id="spec-a" width="720" height="180" role="img" aria-label="Spectrogram of recording A with pitch line"></canvas></div>
+      <div class="cell b"><canvas id="spec-b" width="720" height="180" role="img" aria-label="Spectrogram of recording B with pitch line"></canvas></div>
+      <p id="axis-note" class="note span2">Brightness is energy by frequency over 3 seconds, low pitch at the bottom. The line is the pitch Praat tracked. Both panels share the same scales.</p>
+
+      <h3 class="rowtitle">Inferred outputs from the model</h3>
+      <div class="cell a"><div id="verdict-a" class="verdict" aria-live="polite"></div><div id="probs-a" class="probs"></div></div>
+      <div class="cell b"><div id="verdict-b" class="verdict" aria-live="polite"></div><div id="probs-b" class="probs"></div></div>
+      <p class="note span2">When the model is not confident enough it says so instead of picking a label.</p>
+
+      <h3 class="rowtitle">Measured outputs</h3>
+      <div class="cell a"><dl id="measures-a" class="measures"></dl></div>
+      <div class="cell b"><dl id="measures-b" class="measures"></dl></div>
+      <p id="measures-note" class="note span2">Measured with Praat, not learned. Pitch depends on the speaker, so compare two clips from the same voice.</p>
     </div>
 
-    <div class="slots">
-      <article class="slot a" id="slot-a" aria-labelledby="slot-a-h">
-        <header>
-          <h3 id="slot-a-h"><span class="tag">A</span> <span id="cap-a" class="cap">Empty</span></h3>
-          <div class="ctrl">
-            <button type="button" id="play-a" disabled>Play</button>
-            <button type="button" id="rec-a" aria-pressed="false">Record</button>
-          </div>
-        </header>
-        <canvas id="spec-a" width="720" height="180" role="img" aria-label="Spectrogram of recording A with pitch line"></canvas>
-        <p id="verdict-a" class="verdict" aria-live="polite"></p>
-      </article>
-
-      <article class="slot b" id="slot-b" aria-labelledby="slot-b-h">
-        <header>
-          <h3 id="slot-b-h"><span class="tag">B</span> <span id="cap-b" class="cap">Empty</span></h3>
-          <div class="ctrl">
-            <button type="button" id="play-b" disabled>Play</button>
-            <button type="button" id="rec-b" aria-pressed="false">Record</button>
-          </div>
-        </header>
-        <canvas id="spec-b" width="720" height="180" role="img" aria-label="Spectrogram of recording B with pitch line"></canvas>
-        <p id="verdict-b" class="verdict" aria-live="polite"></p>
-      </article>
-    </div>
-    <div id="transcript-note" class="transcript" hidden></div>
-    <p id="axis-note" class="note">Brightness is energy by frequency over 3 seconds, low pitch at the bottom. The line is the pitch Praat tracked. Both panels share the same scales.</p>
     <p id="error" class="error" role="alert" hidden></p>
   </section>
 
-  <section class="measures" aria-labelledby="measures-h">
-    <h2 id="measures-h">Measured outputs</h2>
-    <table id="measure-table">
-      <thead><tr><th scope="col">Measurement</th><th scope="col" class="a">A</th><th scope="col" class="b">B</th></tr></thead>
-      <tbody id="measure-body"><tr><td colspan="3" class="empty">Nothing measured yet.</td></tr></tbody>
-    </table>
-    <p class="note">Measured with Praat, not learned. Pitch depends on the speaker, so compare two clips from the same voice.</p>
-  </section>
-
-  <section class="model" aria-labelledby="model-h">
-    <h2 id="model-h">Inferred outputs from the model</h2>
-    <div id="probs" class="probs"><p class="empty">Nothing analysed yet.</p></div>
-    <p class="note">When the model is not confident enough it says so instead of picking a label.</p>
-  </section>
-
-  <details id="groups" class="groups limits" hidden>
-    <summary id="groups-h">Fairness: does it work equally well for everyone?</summary>
-    <p id="groups-lede" class="note"></p>
-    <div id="groups-body"></div>
-    <p class="note">Accuracy on speakers the model never heard in training. The dot is the accuracy, the line is a 95% interval resampled by speaker, the dashed line is chance. Where two intervals overlap, this data cannot show a difference in either direction. Sex comes from both corpora; age, race and ethnicity come only from CREMA-D's metadata. Demographic labels are used for evaluation only. The app never estimates them.</p>
-  </details>
-
-  <details id="build" class="limits">
-    <summary>How it is built</summary>
-    <div id="build-body">
-      <figure class="pipeline">
-        <img id="pipe-img" src="/static/pipeline.svg" alt="Diagram. The waveform is split into two independent readings: a learned path (log-mel features, a small recurrent network, temperature scaling, an abstain threshold) and a measured path (Praat pitch, rhythm and loudness). Both are shown side by side. Praat does not feed the classifier." width="100%" loading="lazy">
-        <figcaption class="note">Two readings of the same waveform. They share only the audio. Today the server runs them one after the other, because Praat is not safe to run twice at once, so the total is the sum of the two.</figcaption>
+  <section id="architecture" class="arch" aria-labelledby="arch-h">
+    <h2 id="arch-h">The model</h2>
+    <article id="mcard" class="mcard" aria-labelledby="mc-title">
+      <header>
+        <h3 id="mc-title">DeliveryNet</h3>
+        <span class="hp"><b id="mc-params">n/a</b> parameters</span>
+      </header>
+      <p class="mc-sub">A small convolutional recurrent network that names a delivery from audio alone.</p>
+      <figure class="mc-art">
+        <img id="pipe-img" src="/static/pipeline.svg" alt="Diagram. The waveform is split into two independent readings: a learned path (log-mel features, a small recurrent network, temperature scaling, an abstain threshold) and a measured path (Praat pitch, rhythm and loudness). Praat does not feed the classifier." width="100%" loading="lazy">
       </figure>
-      <p>The browser sends raw 16-bit audio to a Python (FastAPI) server. The server computes one shared log-mel front end, measures prosody with Praat, and runs the network in <a href="https://github.com/sonos/tract">tract</a>, an inference engine written in Rust. The model is trained in PyTorch and exported to ONNX, and a test checks that tract and PyTorch agree to within 1e-3 on the same input.</p>
-      <p>The on-device option runs that same ONNX file in the browser with ONNX Runtime Web (WebAssembly). The feature code is a JavaScript port of the Python one, and a test requires the two to agree to 1e-3 on the log-mel features before the model sees them.</p>
-      <table id="arch-table"><thead><tr><th scope="col">Layer</th><th scope="col">Output shape</th><th scope="col">Params</th><th scope="col">PyTorch, ms</th></tr></thead><tbody id="arch-body"></tbody></table>
-      <p id="arch-note" class="note"></p>
-    </div>
-  </details>
+      <dl id="mc-stats" class="mc-stats"></dl>
+      <p class="mc-weak"><strong>Weakness.</strong> It learned acted speech from two studio corpora. It is far weaker on a corpus it was not trained on, and it reads performed delivery, not what anyone feels.</p>
+    </article>
+
+    <details id="mc-details" class="limits">
+      <summary>Full model details</summary>
+      <div id="mc-details-body">
+        <p id="mc-flow" class="note"></p>
+        <table id="arch-table"><thead><tr><th scope="col">Layer</th><th scope="col">Output shape</th><th scope="col">Parameters</th><th scope="col">PyTorch, ms</th></tr></thead><tbody id="arch-body"></tbody></table>
+        <p id="arch-note" class="note"></p>
+        <h3 class="lhead">Trained on one corpus, tested on the other</h3>
+        <table id="cross-table"><thead><tr><th scope="col">Direction</th><th scope="col">Test speakers</th><th scope="col">Accuracy</th><th scope="col">95% interval</th></tr></thead><tbody id="cross-body"></tbody></table>
+        <p class="note">Chance is 16.7%. <a href="/model-card">Full model card</a></p>
+      </div>
+    </details>
+
+    <details id="build" class="limits">
+      <summary>How it was built</summary>
+      <div id="build-body">
+        <p>The browser sends raw 16-bit audio to a Python (FastAPI) server. The server computes one shared log-mel front end, measures prosody with Praat, and runs the network in <a href="https://github.com/sonos/tract">tract</a>. The model is trained in PyTorch and exported to ONNX, and a test checks that tract and PyTorch agree to within 1e-3 on the same input.</p>
+        <p>The on-device option runs that same ONNX file in the browser with ONNX Runtime Web (WebAssembly). The feature code is a JavaScript port of the Python one, and a test requires the two to agree to 1e-3 on the log-mel features before the model sees them.</p>
+        <p class="note">The two readings of the waveform share only the audio. Today the server runs them one after the other, because Praat is not safe to run twice at once, so the total is the sum of the two.</p>
+      </div>
+    </details>
+
+    <details id="groups" class="groups limits" hidden>
+      <summary id="groups-h">Fairness: does it work equally well for everyone?</summary>
+      <p id="groups-lede" class="note"></p>
+      <div id="groups-body"></div>
+      <p class="note">Accuracy on speakers the model never heard in training. The dot is the accuracy, the line is a 95% interval resampled by speaker, the dashed line is chance. Where two intervals overlap, this data cannot show a difference in either direction. Sex comes from both corpora; age, race and ethnicity come only from CREMA-D's metadata. Demographic labels are used for evaluation only. The app never estimates them.</p>
+    </details>
+  </section>
+
+  <section id="latency" class="lat" aria-labelledby="latency-h">
+    <h2 id="latency-h">Latency</h2>
+    <p id="privacy" class="note">Audio is processed in memory and discarded. Only the timings below are stored: no audio, no address, no account.</p>
+    <h3 class="lhead">This run</h3>
+    <p id="this-run">No run yet.</p>
+    <h3 class="lhead" id="all-h">All runs since launch</h3>
+    <table id="all-table">
+      <thead><tr><th scope="col">Step</th><th scope="col">Average</th><th scope="col">Median</th><th scope="col">Slow case (95th percentile)</th></tr></thead>
+      <tbody id="all-body"></tbody>
+    </table>
+    <p id="all-note" class="note"></p>
+  </section>
+
+  <section id="cost-wrap" class="cost" aria-labelledby="cost-h" hidden>
+    <h2 id="cost-h">What an analysis costs</h2>
+    <div id="cost-body"></div>
+  </section>
 
   <details id="limits" class="limits">
     <summary>Limitations and next steps</summary>
@@ -133,27 +212,18 @@
   </details>
 </main>
 
-<footer id="latency" class="latency" aria-labelledby="latency-h">
-  <h2 id="latency-h">Latency</h2>
-  <p id="privacy" class="note">Audio is processed in memory and discarded. Only the timings below are stored: no audio, no address, no account.</p>
-  <div class="runlat">
-    <h3>This run</h3>
-    <p id="this-run">No run yet.</p>
-  </div>
-  <div class="alllat">
-    <h3 id="all-h">All runs since launch</h3>
-    <table id="all-table">
-      <thead><tr><th scope="col">Stage</th><th scope="col">Mean</th><th scope="col">p50</th><th scope="col">p95</th></tr></thead>
-      <tbody id="all-body"></tbody>
-    </table>
-    <p id="all-note" class="note"></p>
-  </div>
-  <div class="cost" id="cost-wrap" hidden>
-    <h3>What an analysis costs</h3>
-    <div id="cost-body"></div>
-  </div>
-  <p class="note foot"><span id="repo-wrap" hidden>Source code: <a id="repo-link" href="">on GitHub</a>. </span>Code is MIT. The model and sample clips come from CREMA-D (ODbL) and RAVDESS (CC BY-NC-SA 4.0), so they are for non-commercial use.</p>
+<footer class="foot">
+  <p class="note"><span id="repo-wrap" hidden>Source code: <a id="repo-link" href="">on GitHub</a>. </span>Code is MIT. The model and sample clips come from CREMA-D (ODbL) and RAVDESS (CC BY-NC-SA 4.0), so they are for non-commercial use.</p>
 </footer>
+
+<dialog id="card-dialog" aria-labelledby="cd-title">
+  <div class="cd-inner">
+    <h2 id="cd-title"></h2>
+    <div id="cd-body"></div>
+    <details id="cd-more"><summary>More</summary><div id="cd-more-body"></div></details>
+    <div class="cd-actions"><span id="cd-extra"></span><button type="button" id="cd-close" class="plain-btn">Close</button></div>
+  </div>
+</dialog>
 
 <script src="/static/app.js"></script>
 </body>

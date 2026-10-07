@@ -25,6 +25,9 @@
     stats: null,
     storage: null,
     pairToken: 0,
+    mode: "samples", // "samples" | "record"
+    util: 0.25, // assumed server utilisation for the cost estimate
+    arch: null,
     engine: "server", // "server" | "device"
     device: { status: "checking", info: null, eng: null, error: "" }, // checking | unavailable | available | loading | ready | error
   };
@@ -290,6 +293,7 @@
     $(`play-${key}`).disabled = !s.pcm;
     $(`play-${key}`).textContent = s.playing ? "Stop" : "Play";
     drawSlot(key);
+    renderOvals(key);
     const v = $(`verdict-${key}`);
     v.textContent = "";
     if (s.run === "pending") { v.textContent = "Analysing…"; return; }
@@ -347,53 +351,48 @@
   }
 
   function renderMeasures() {
-    const body = $("measure-body");
-    const a = state.slots.a.result, b = state.slots.b.result;
     const desc = state.model && state.model.prosody_descriptions;
-    body.textContent = "";
-    if (!desc || (!a && !b)) {
-      body.append(el("tr", {}, el("td", { colspan: "3", class: "empty", text: "Nothing measured yet." })));
-      return;
-    }
-    const pa = a && a.prosody, pb = b && b.prosody;
-    if (!pa && !pb) {
-      body.append(el("tr", {}, el("td", { colspan: "3", class: "empty", text: "Praat measurements run on the server, so they are off in on-device mode. Switch to the server to see them." })));
-      return;
-    }
-    for (const [k, [label, unit, why]] of Object.entries(desc)) {
-      if (k === "duration_s") continue;
-      const va = pa ? pa[k] : undefined, vb = pb ? pb[k] : undefined;
-      const name = el("td", { title: why, text: unit ? `${label} (${unit})` : label });
-      const ta = el("td", { text: pa ? fmtMeasure(k, va) : a ? "n/a" : "" });
-      const tb = el("td", { text: pb ? fmtMeasure(k, vb) : b ? "n/a" : "" });
-      if (pa && pb && va != null && vb != null) {
-        const d = vb - va;
-        const share = k === "voiced_frac" || k === "pause_frac";
-        const txt = share ? `${d >= 0 ? "+" : "−"}${Math.round(Math.abs(d) * 100)} pts` : `${d >= 0 ? "+" : "−"}${Math.abs(d).toFixed(k === "f0_median_hz" ? 0 : 1)}`;
-        tb.append(el("span", { class: "diff", text: txt }));
+    const res = { a: state.slots.a.result, b: state.slots.b.result };
+    const boxes = { a: $("measures-a"), b: $("measures-b") };
+    boxes.a.textContent = ""; boxes.b.textContent = "";
+    const say = (t) => { boxes.a.append(el("p", { class: "empty", text: t })); };
+    if (!desc || (!res.a && !res.b)) { say("Nothing measured yet."); return; }
+    const pa = res.a && res.a.prosody, pb = res.b && res.b.prosody;
+    if (!pa && !pb) { say("Praat runs on the server, so its measurements are off in on-device mode. Switch to the server to see them."); return; }
+    for (const [key, [label, unit, why]] of Object.entries(desc)) {
+      if (key === "duration_s") continue;
+      for (const k of ["a", "b"]) {
+        const r = res[k], p = k === "a" ? pa : pb;
+        if (!r) continue;
+        const name = unit ? `${label} (${unit})` : label;
+        const dd = el("dd", { text: p ? fmtMeasure(key, p[key]) : "n/a" });
+        if (k === "b" && pa && pb && pa[key] != null && pb[key] != null) {
+          const d = pb[key] - pa[key];
+          const share = key === "voiced_frac" || key === "pause_frac";
+          const txt = share ? `${d >= 0 ? "+" : "−"}${Math.round(Math.abs(d) * 100)} pts` : `${d >= 0 ? "+" : "−"}${Math.abs(d).toFixed(key === "f0_median_hz" ? 0 : 1)}`;
+          dd.append(el("span", { class: "diff", text: txt }));
+        }
+        boxes[k].append(el("div", { class: "mrow", title: why }, el("dt", { text: name }), dd));
       }
-      body.append(el("tr", {}, name, ta, tb));
     }
   }
 
   function renderProbs() {
-    const box = $("probs");
-    const a = state.slots.a.result, b = state.slots.b.result;
-    box.textContent = "";
-    if (!state.model || !state.model.loaded || (!a && !b)) {
-      box.append(el("p", { class: "empty", text: "Nothing analysed yet." }));
-      return;
-    }
-    for (const c of state.model.classes) {
-      const bars = el("div", { class: "bars" });
-      const nums = el("div", { class: "nums" });
-      for (const [k, r] of [["a", a], ["b", b]]) {
-        if (!r) continue;
-        const p = r.probs[c];
-        bars.append(el("div", { class: `bar ${k}`, role: "img", "aria-label": `${k.toUpperCase()}: ${pct(p)}` }, el("i", { style: `width:${(p * 100).toFixed(1)}%` })));
-        nums.append(el("div", { text: `${k.toUpperCase()} ${pct(p)}` }));
+    const res = { a: state.slots.a.result, b: state.slots.b.result };
+    const ready = state.model && state.model.loaded;
+    for (const k of ["a", "b"]) {
+      const box = $(`probs-${k}`);
+      box.textContent = "";
+      if (!ready || !res[k]) { if (k === "a" && !res.a && !res.b) box.append(el("p", { class: "empty", text: "Nothing analysed yet." })); continue; }
+      const top = Object.entries(res[k].probs).sort((x, y) => y[1] - x[1])[0][0];
+      for (const c of state.model.classes) {
+        const p = res[k].probs[c];
+        const label = el("span", { text: cap(c) });
+        if (c === top && !res[k].abstained) label.style.fontWeight = "650";
+        box.append(el("div", { class: "prow" }, label,
+          el("div", { class: `bar ${k}`, role: "img", "aria-label": `${cap(c)}: ${pct(p)}` }, el("i", { style: `width:${(p * 100).toFixed(1)}%` })),
+          el("span", { class: "nums", text: pct(p) })));
       }
-      box.append(el("div", { class: "prow" }, el("span", { text: cap(c) }), bars, nums));
     }
   }
 
@@ -410,7 +409,7 @@
         continue;
       }
       parts.push(
-        `${k.toUpperCase()}: server ${fmtMs(t.server_ms)} (features ${fmtMs(t.features_ms)}, Praat ${fmtMs(t.prosody_ms)}, tract ${fmtMs(t.tract_ms)})` +
+        `${k.toUpperCase()}: server ${fmtMs(t.server_ms)} (features ${fmtMs(t.features_ms)}, Praat ${fmtMs(t.prosody_ms)}, model ${fmtMs(t.tract_ms)})` +
           `; round trip ${fmtMs(r.e2e_ms)}` + (t.cold ? "; first request after start, excluded from the averages below" : "")
       );
     }
@@ -424,7 +423,7 @@
       $("all-note").textContent = "Statistics are unavailable right now. Analysis still works.";
       return;
     }
-    const rows = [["Model (tract)", st.tract], ["Server total", st.server], ["Round trip, your browser", st.round_trip]];
+    const rows = [["Model inference", st.tract], ["Server total, features and Praat included", st.server], ["Round trip, including your network", st.round_trip]];
     for (const [name, s] of rows) {
       body.append(el("tr", {}, el("td", { text: name }),
         el("td", { text: s && s.n ? fmtMs(s.mean) : "n/a" }),
@@ -445,21 +444,7 @@
 
   function renderAll() {
     renderSlot("a"); renderSlot("b");
-    renderMeasures(); renderProbs(); renderLatency(); renderTranscript(); renderCost();
-  }
-
-  function renderTranscript() {
-    const box = $("transcript-note");
-    const a = state.slots.a.result, b = state.slots.b.result;
-    box.textContent = "";
-    if (state.pair && (a || b)) {
-      const q = `\u201C${state.pair.sentence}\u201D`;
-      box.hidden = false;
-      box.append(el("p", {}, el("strong", { text: "What a transcript keeps. " }), `Both clips were scripted with the same sentence, so a transcript of A reads ${q} and so does a transcript of B. A system that only reads text gets identical input for the two and cannot tell them apart. Everything below the sentence on this page comes from the audio.`));
-    } else if (a && b && state.slots.a.source === "live" && state.slots.b.source === "live") {
-      box.hidden = false;
-      box.append(el("p", {}, el("strong", { text: "What a transcript keeps. " }), "If you said the same words both times, a transcript of A and B is the same text. What differs between them is only in the audio, and that is what the page measures."));
-    } else box.hidden = true;
+    renderMeasures(); renderProbs(); renderLatency(); renderCost(); renderModelCard();
   }
 
   function renderBanner() {
@@ -569,7 +554,6 @@
     document.querySelectorAll("#pairlist button").forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
     stopPlayback("a"); stopPlayback("b");
     showError("");
-    $("own-sentence-wrap").hidden = true;
     const sent = $("sentence");
     sent.classList.remove("plain");
     sent.textContent = pair.sentence;
@@ -654,7 +638,6 @@
     $(`rec-${key}`).textContent = "Stop";
     state.slots[key].label = "Recording…";
     state.slots[key].truth = null; state.slots[key].result = null; state.pair = null;
-    $("own-sentence-wrap").hidden = false;
     const sent = $("sentence");
     const typed = $("own-sentence").value.trim();
     sent.classList.toggle("plain", !typed);
@@ -696,6 +679,8 @@
         body.append(el("tr", {}, el("td", { text: `${r.layer} ${r.type}` }), el("td", { text: r.output.join(" \u00d7 ") }),
           el("td", { text: r.params.toLocaleString() }), el("td", { text: r.ms_p50.toFixed(2) })));
       }
+      state.arch = a;
+      renderModelCard();
       $("arch-note").textContent = `${a.n_params.toLocaleString()} parameters. ${a.timing_note}. The live inference numbers are in the Latency section.`;
     } catch (_) {
       $("arch-table").hidden = true;
@@ -834,24 +819,204 @@
 
   // ---------- what an analysis costs ----------
   // Assumption, stated on the page: a small always-on instance at this list price, running flat out.
-  const INSTANCE_USD_PER_MONTH = 7;
-  const WINDOW_S_MODEL = 3; // the model hears at most 3 s per analysis
+  const PRICE_PER_HOUR = 0.0725; // USD, AWS c7g.large (2 vCPU, 4 GB), on-demand, us-east-1, checked 7 Oct 2026
+  const usd = (v) => (v >= 1 ? `$${v.toFixed(2)}` : v >= 0.01 ? `$${v.toFixed(3)}` : `$${v.toPrecision(2)}`);
+  let costRefs = null;
+
+  function costFigures() {
+    const sv = state.stats && state.stats.server;
+    if (!sv || !sv.n) return null;
+    const secs = sv.mean / 1000;
+    const perAnalysis = (PRICE_PER_HOUR / 3600) * secs / state.util;
+    return { secs, perAnalysis };
+  }
+
+  function updateCost() {
+    const f = costFigures();
+    if (!f || !costRefs) return;
+    costRefs.out.textContent = `${Math.round(state.util * 100)}%`;
+    costRefs.k.textContent = usd(f.perAnalysis * 1e3);
+    costRefs.m.textContent = usd(f.perAnalysis * 1e6);
+  }
 
   function renderCost() {
     const wrap = $("cost-wrap"), body = $("cost-body");
-    const sv = state.stats && state.stats.server;
-    body.textContent = "";
-    if (!sv || !sv.n) { wrap.hidden = true; return; }
+    const f = costFigures();
+    if (!f) { wrap.hidden = true; return; }
     wrap.hidden = false;
-    const secs = sv.mean / 1000;
-    const perSecUsd = INSTANCE_USD_PER_MONTH / (30 * 24 * 3600);
-    const perClip = secs * perSecUsd;
-    const rtf = WINDOW_S_MODEL / secs;
-    const usd = (v) => (v >= 1 ? `$${v.toFixed(2)}` : v >= 0.01 ? `$${v.toFixed(3)}` : `$${v.toPrecision(2)}`);
+    body.textContent = "";
+    const sv = state.stats.server;
+    const slider = el("input", { type: "range", id: "util", min: "5", max: "100", step: "5", value: String(Math.round(state.util * 100)), "aria-describedby": "util-out" });
+    const out = el("output", { id: "util-out", for: "util" });
+    slider.addEventListener("input", () => { state.util = Number(slider.value) / 100; updateCost(); });
+    const kCell = el("td"), mCell = el("td");
+    const kb = state.model && state.model.ondevice_kb;
     body.append(
-      el("p", {}, `Mean server time per analysis is ${fmtMs(sv.mean)}, Praat included. One worker therefore handles about ${rtf >= 10 ? Math.round(rtf) : rtf.toFixed(1)} seconds of audio for every second that passes (clips of 3 seconds).`),
-      el("p", {}, `Priced as a small always-on server at $${INSTANCE_USD_PER_MONTH} a month and kept fully busy, that is about ${usd(perClip * 1e6)} per million analyses, or ${usd(perClip * (3600 / WINDOW_S_MODEL) * 1000)} per thousand hours of audio.`),
-      el("p", { class: "note", text: "Real traffic is never flat out, and this leaves out bandwidth, storage, monitoring and the time it took to build. It prices this one small model on short clips, nothing larger. When the analysis runs on your device it costs the host nothing per run." }));
+      el("p", {}, `Server time per analysis averages ${fmtMs(sv.mean)}, features and Praat included. Priced on one AWS instance (c7g.large, 2 vCPU, 4 GB) at $${PRICE_PER_HOUR} an hour, on demand in US East (N. Virginia), running one analysis at a time.`),
+      el("div", { class: "util" }, el("label", { for: "util", text: "How busy the instance is, on average: " }), slider, " ", out),
+      el("table", { id: "cost-table" },
+        el("thead", {}, el("tr", {}, el("th", { scope: "col", text: "Where it runs" }), el("th", { scope: "col", text: "Per 1,000 analyses" }), el("th", { scope: "col", text: "Per million" }))),
+        el("tbody", {},
+          el("tr", {}, el("td", { text: "On the server (AWS)" }), kCell, mCell),
+          el("tr", {}, el("td", { text: "On your device (no server compute)" }), el("td", { text: "$0" }), el("td", { text: "$0" })))),
+      el("p", { class: "note", text: `On your device the host pays for no compute, only for serving a one-time download${kb ? ` of about ${(kb / 1024).toFixed(0)} MB` : ""}. The server time was measured on this site's host, not on a c7g.large, so read the estimate as an order of magnitude. It leaves out bandwidth, storage, monitoring and the time it took to build.` }));
+    costRefs = { out, k: kCell, m: mCell };
+    updateCost();
+  }
+
+  // ---------- model card ----------
+  function renderModelCard() {
+    const m = state.model;
+    if (!m || !m.loaded) return;
+    $("mc-params").textContent = m.n_params.toLocaleString();
+    const t = m.test || {};
+    const st = state.stats;
+    const arch = state.arch;
+    const rows = [];
+    const row = (label, main, small, wide) => rows.push(el("div", wide ? { class: "wide" } : {}, el("dt", { text: label }), el("dd", {}, main, small ? el("small", { text: ` ${small}` }) : "")));
+    if (t.accuracy != null) row("Accuracy on unseen speakers", pct(t.accuracy), t.accuracy_ci95 ? `95% interval ${pct(t.accuracy_ci95[0])} to ${pct(t.accuracy_ci95[1])}` : "");
+    if (t.chance != null) row("Chance", pct(t.chance), `${m.classes.length} deliveries`);
+    if (t.coverage_at_threshold != null) row("Answers on", `${pct(t.coverage_at_threshold)} of clips`, `correct on ${pct(t.accuracy_when_answering)} of those`);
+    const cc = t.cross_corpus && Object.values(t.cross_corpus).filter((v) => v && v.accuracy != null).map((v) => v.accuracy);
+    if (cc && cc.length) row("On the other corpus", `${pct(Math.min(...cc))} to ${pct(Math.max(...cc))}`, "trained on one, tested on the other");
+    row("Input", "3 s of mono audio", arch && arch.input ? `as 64 mel bands × ${arch.input[3]} frames` : "");
+    row("Output", `${m.classes.length} delivery probabilities`, "or Unsure");
+    const ms = (x) => (x && x.n ? fmtMs(x.p50) : "n/a");
+    row("Inference time, median", ms(st && st.tract), `model alone; ${ms(st && st.server)} on the server in total`);
+    if (m.ondevice_kb) row("On-device download", `about ${(m.ondevice_kb / 1024).toFixed(0)} MB`, "mostly the WebAssembly runtime");
+    const dl = $("mc-stats");
+    dl.textContent = "";
+    rows.forEach((r) => dl.append(r));
+    $("mc-flow").textContent = "Two readings of the same waveform. They share only the audio, and Praat does not feed the classifier. Today the server runs them one after the other, because Praat is not safe to run twice at once, so the total is the sum of the two.";
+    const cb = $("cross-body");
+    cb.textContent = "";
+    for (const [k, v] of Object.entries(t.cross_corpus || {})) {
+      if (!v || v.accuracy == null) continue;
+      const ci = v.accuracy_ci95_speaker_bootstrap || v.accuracy_ci95;
+      cb.append(el("tr", {}, el("td", { text: k.split("_to_").map(dsName).join(" to ") }), el("td", { text: String(v.n_test_speakers ?? "") }),
+        el("td", { text: pct(v.accuracy) }), el("td", { text: ci ? `${pct(ci[0])} to ${pct(ci[1])}` : "n/a" })));
+    }
+    $("cross-table").hidden = !cb.children.length;
+  }
+
+  // ---------- principles ----------
+  const CARDS = [
+    { id: "privacy", title: "Privacy", short: "Run the model on your own device and your audio never leaves the tab.",
+      body: ["Choose where the analysis runs. On your device the model runs in your browser as WebAssembly and nothing is sent anywhere. On the server your audio is analysed in memory and thrown away."],
+      more: ["The server keeps one line of timings per run: no audio, no address, no account.", "A recording lives only until you replace it or leave the page.", "No third-party scripts, fonts or analytics.", "Praat measurements run only on the server, so they are off in on-device mode."],
+      extra: { text: "Run on your device", go: () => chooseEngine("device") } },
+    { id: "transparency", title: "Transparency", short: "Every answer shows its confidence, and the model says when it is unsure.",
+      body: ["Each result comes with a confidence meter and the line below which the model declines to answer. The numbers behind it are published: accuracy on speakers it never heard, with an interval, and the tests where it does badly."],
+      more: ["The sample scoreboard marks every clip correct, incorrect or unsure.", "A cross-corpus test shows how far it falls on unfamiliar recording conditions.", "The model card is generated from the same metrics file the app reads, so the page and the card cannot disagree."],
+      extra: { text: "Read the model card", href: "/model-card" } },
+    { id: "latency", title: "Latency", short: "Every step is timed on every run, and the numbers are reported, not estimated.",
+      body: ["Feature extraction, Praat and model inference are timed separately. On the server the total is their sum, because Praat cannot run twice at once. On your device the model runs with no network request."],
+      more: ["Averages, medians and slow cases (95th percentile) over all runs since launch sit near the bottom of the page.", "The first request after the server wakes is timed but left out of the averages."],
+      extra: { text: "See the numbers", go: () => goTo("latency") } },
+    { id: "fairness", title: "Fairness", short: "Accuracy is reported by group, on speakers the model never trained on.",
+      body: ["An overall number can look healthy while one group of speakers fails. That is what the bias-assessment work I co-authored at Sonos was about. Here accuracy is broken out by sex, age, race and ethnicity wherever the data has labels, with intervals resampled by speaker."],
+      more: ["Where two intervals overlap, the data cannot show a difference in either direction.", "The labels are used for evaluation only. The app never estimates them.", "Both corpora are acted speech, and neither is a representative sample of people."],
+      extra: { text: "See the breakdown", go: () => goTo("groups", "groups") } },
+    { id: "cost", title: "Cost", short: "What an analysis costs on AWS, and what it costs when your device does the work.",
+      body: ["The estimate comes from the measured server time per analysis, priced on a small AWS instance. When the analysis runs on your device, it costs the host no compute."],
+      more: ["You can change how busy the instance is. Real traffic is never flat out.", "It leaves out bandwidth, storage, monitoring and engineering time."],
+      extra: { text: "See the estimate", go: () => goTo("cost-wrap") } },
+  ];
+
+  function goTo(id, openId) {
+    const d = $("card-dialog");
+    if (d.open) d.close();
+    if (openId && $(openId)) $(openId).open = true;
+    const t = $(id);
+    if (t && !t.hidden) t.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  }
+
+  function chooseEngine(which) {
+    const input = document.querySelector(`#engine input[value="${which}"]`);
+    if (input && !input.disabled) { input.checked = true; setEngine(which); }
+    goTo("engine");
+  }
+
+  function openCard(id) {
+    const c = CARDS.find((x) => x.id === id);
+    if (!c) return;
+    $("cd-title").textContent = c.title;
+    const body = $("cd-body");
+    body.textContent = "";
+    c.body.forEach((t) => body.append(el("p", { text: t })));
+    const more = $("cd-more-body");
+    more.textContent = "";
+    const ul = el("ul");
+    c.more.forEach((t) => ul.append(el("li", { text: t })));
+    more.append(ul);
+    $("cd-more").open = false;
+    const extra = $("cd-extra");
+    extra.textContent = "";
+    if (c.extra && c.extra.href) extra.append(el("a", { href: c.extra.href, text: c.extra.text }));
+    else if (c.extra) {
+      const b = el("button", { type: "button", class: "linkbtn", text: c.extra.text });
+      b.addEventListener("click", c.extra.go);
+      extra.append(b);
+    }
+    const d = $("card-dialog");
+    if (d.showModal) d.showModal(); else d.setAttribute("open", "");
+  }
+
+  function buildCards() {
+    const ul = $("cards");
+    ul.textContent = "";
+    for (const c of CARDS) {
+      const b = el("button", { type: "button", class: "card", "data-card": c.id, "aria-haspopup": "dialog" }, el("h3", { text: c.title }), el("p", { text: c.short }));
+      ul.append(el("li", {}, b));
+    }
+  }
+
+  // ---------- modes and your own recordings ----------
+  function emptySlot() { return { pcm: null, sr: 0, result: null, source: null, label: "Empty", playing: null, run: null, truth: null }; }
+
+  function setMode(mode) {
+    state.mode = mode;
+    document.body.classList.toggle("mode-samples", mode === "samples");
+    document.body.classList.toggle("mode-record", mode === "record");
+    const r = document.querySelector(`#mode input[value="${mode}"]`);
+    if (r) r.checked = true;
+    state.pairToken++;
+    if (state.recording) finishRecording();
+    stopPlayback("a"); stopPlayback("b");
+    state.slots.a = emptySlot(); state.slots.b = emptySlot();
+    state.pair = null;
+    document.querySelectorAll("#pairlist button").forEach((b) => b.setAttribute("aria-pressed", "false"));
+    const sent = $("sentence");
+    if (mode === "record") {
+      const typed = $("own-sentence").value.trim();
+      sent.classList.toggle("plain", !typed);
+      sent.textContent = typed || "Plan your sentence above, then record it twice in two different ways.";
+    } else {
+      sent.classList.add("plain");
+      sent.textContent = "Choose a pair above.";
+    }
+    showError("");
+    renderAll();
+  }
+
+  function renderOvals(key) {
+    const box = $(`ovals-${key}`), s = state.slots[key];
+    box.textContent = "";
+    if (state.mode !== "record" || !state.model || !state.model.classes) return;
+    if (state.recording && state.recording.key === key) { box.append(el("span", { class: "askpick", text: "Recording. Press Stop when you are done." })); return; }
+    if (!s.pcm || s.source !== "live") { box.append(el("span", { class: "askpick", text: "Record, then tap the delivery you performed." })); return; }
+    const other = state.slots[key === "a" ? "b" : "a"];
+    box.append(el("span", { class: "askpick", text: s.truth ? "Change it if that was wrong:" : "Which delivery did you perform?" }));
+    for (const c of state.model.classes) {
+      const b = el("button", { type: "button", class: "oval", "aria-pressed": String(s.truth === c), text: cap(c) });
+      if (other.truth === c && s.truth !== c) { b.disabled = true; b.title = `Already used for ${key === "a" ? "B" : "A"}`; }
+      b.addEventListener("click", () => {
+        s.truth = c;
+        renderSlot(key); renderSlot(key === "a" ? "b" : "a");
+      });
+      box.append(b);
+    }
+    if (s.truth) box.append(el("span", { class: "saved", text: `✓ Saved: ${key.toUpperCase()} is ${s.truth}.` }));
   }
 
   // ---------- limits and next steps ----------
@@ -864,18 +1029,24 @@
       $(`rec-${k}`).addEventListener("click", () => toggleRecord(k));
     }
     $("score-run").addEventListener("click", runScoreboard);
+    document.querySelectorAll('#mode input[name="mode"]').forEach((i) =>
+      i.addEventListener("change", () => { if (i.checked) setMode(i.value); }));
+    document.addEventListener("click", (e) => { const b = e.target.closest("[data-card]"); if (b) openCard(b.dataset.card); });
+    $("cd-close").addEventListener("click", () => $("card-dialog").close());
+    $("card-dialog").addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
     $("own-sentence").addEventListener("input", (e) => {
       const sent = $("sentence");
       const v = e.target.value.trim();
       sent.classList.toggle("plain", !v);
-      sent.textContent = v || "Say the same sentence in each slot, delivered differently.";
+      sent.textContent = v || "Plan your sentence above, then record it twice in two different ways.";
     });
   }
 
-  const REPO_URL = ""; // set to the public repository URL to show the footer link
+  const REPO_URL = "https://github.com/blakeperrysmith/beyond-the-transcript"; // set to the public repository URL to show the footer link
 
   async function init() {
     wire();
+    buildCards();
     if (REPO_URL) { $("repo-link").href = REPO_URL; $("repo-wrap").hidden = false; }
     renderAll();
     // The model details drive the threshold line, the group chart and the measurement labels, so retry once
@@ -900,9 +1071,9 @@
     loadArchitecture();
     await loadManifest();
     if (!state.manifest) {
-      $("sentence").classList.add("plain");
-      $("sentence").textContent = "Record the same sentence twice, in two different ways, using the Record buttons.";
-      $("own-sentence-wrap").hidden = false;
+      const r = document.querySelector('#mode input[value="samples"]');
+      r.disabled = true;
+      setMode("record");
     }
     renderAll();
   }
