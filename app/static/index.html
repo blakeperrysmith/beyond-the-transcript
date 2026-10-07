@@ -15,25 +15,22 @@
     <div class="herotext">
       <h1>Beyond the transcript</h1>
       <p class="lede">A transcript keeps the words and drops the rest. Two recordings of the same sentence can read identically as text and mean very different things.</p>
-      <p class="lede">This is a small demo, built to show how I think about speech: what the audio carries, how a small model and measured acoustics read it, and what I would check before trusting either. It is a toy, not a product.</p>
+      <p class="lede">I built this small toy demo to demonstrate my expertise at the intersection of Computational Linguistics, ML Engineering, and Product Judgement.</p>
     </div>
     <figure class="venn">
       <svg viewBox="0 0 360 330" role="img" aria-labelledby="venn-t venn-d">
-        <title id="venn-t">Three overlapping circles</title>
-        <desc id="venn-d">Language (linguistics and NLP), systems (speech and ML engineering) and judgement (product and responsible AI) overlap in the middle, where the work is hearing past the transcript.</desc>
+        <title id="venn-t">Three overlapping circles: Computational Linguistics, ML Engineering, Product Judgement</title>
+        <desc id="venn-d">Computational linguistics, ML engineering and product judgement overlap in the middle, where the work is hearing past the transcript.</desc>
         <circle cx="132" cy="120" r="100" class="vc v1"/>
         <circle cx="228" cy="120" r="100" class="vc v2"/>
         <circle cx="180" cy="203" r="100" class="vc v3"/>
         <g class="vl" text-anchor="middle">
-          <text x="84" y="104" class="vh">Language</text>
-          <text x="84" y="122">Linguistics</text>
-          <text x="84" y="138">NLP</text>
-          <text x="276" y="104" class="vh">Systems</text>
-          <text x="276" y="122">Speech</text>
-          <text x="276" y="138">ML engineering</text>
-          <text x="180" y="266" class="vh">Judgement</text>
-          <text x="180" y="284">Product</text>
-          <text x="180" y="300">Responsible AI</text>
+          <text x="84" y="108" class="vh">Computational</text>
+          <text x="84" y="124" class="vh">Linguistics</text>
+          <text x="276" y="108" class="vh">ML</text>
+          <text x="276" y="124" class="vh">Engineering</text>
+          <text x="180" y="276" class="vh">Product</text>
+          <text x="180" y="292" class="vh">Judgement</text>
           <text x="180" y="148" class="vc-mid">Hearing past</text>
           <text x="180" y="163" class="vc-mid">the transcript</text>
         </g>
@@ -148,7 +145,7 @@
     <h2 id="arch-h">The model</h2>
     <article id="mcard" class="mcard" aria-labelledby="mc-title">
       <header>
-        <h3 id="mc-title">DeliveryNet</h3>
+        <h3 id="mc-title">Delivery classifier</h3>
         <span class="hp"><b id="mc-params">n/a</b> parameters</span>
       </header>
       <p class="mc-sub">A small convolutional recurrent network that names a delivery from audio alone.</p>
@@ -176,7 +173,8 @@
       <div id="build-body">
         <p>The browser sends raw 16-bit audio to a Python (FastAPI) server. The server computes one shared log-mel front end, measures prosody with Praat, and runs the network in <a href="https://github.com/sonos/tract">tract</a>. The model is trained in PyTorch and exported to ONNX, and a test checks that tract and PyTorch agree to within 1e-3 on the same input.</p>
         <p>The on-device option runs that same ONNX file in the browser with ONNX Runtime Web (WebAssembly). The feature code is a JavaScript port of the Python one, and a test requires the two to agree to 1e-3 on the log-mel features before the model sees them.</p>
-        <p class="note">The two readings of the waveform share only the audio. Today the server runs them one after the other, because Praat is not safe to run twice at once, so the total is the sum of the two.</p>
+        <p>I also tried feeding six Praat measurements into the classifier as extra inputs. Across three speaker-disjoint splits it never beat audio alone: the average difference was under one point, and the intervals spanned zero. So Praat stays a separate, measured reading, not an input.</p>
+        <p class="note">The two readings of the waveform share only the audio. Today the server runs them one after the other, because Praat is not thread-safe, so the server measures one clip at a time and the total is the sum of the two.</p>
       </div>
     </details>
 

@@ -327,11 +327,11 @@
     const meter = el("div", { class: "meter", role: "img", "aria-label": `The model's top guess, ${topLabel}, has ${pct(topP)} confidence. It answers only at ${pct(thr)} or more.` },
       el("i", { style: `width:${(topP * 100).toFixed(1)}%` }),
       el("b", { class: "tick", style: `left:${(thr * 100).toFixed(1)}%` }));
-    wrap.append(el("div", { class: "meterwrap" }, meter, ...(Number.isFinite(thr) ? [el("span", { class: "ticklabel", style: `left:${(thr * 100).toFixed(1)}%`, text: `answers from ${pct(thr)}` })] : [])));
+    wrap.append(el("div", { class: "meterwrap" }, meter, ...(Number.isFinite(thr) ? [el("span", { class: "ticklabel", style: `left:${(thr * 100).toFixed(1)}%`, text: `Confidence threshold = ${pct(thr)}` })] : [])));
 
     const bits = [];
     if (r.abstained) {
-      bits.push(`Its top guess, ${topLabel} at ${pct(topP)}, is below the ${pct(thr)} it needs to answer.`);
+      bits.push(`Its top guess, ${topLabel} at ${pct(topP)}, is below the confidence threshold of ${pct(thr)}, so it does not answer.`);
       if (truth) bits.push(`That guess would have been ${topLabel === truth ? "correct" : "incorrect"}.`);
     } else if (truth && kind === "right") {
       bits.push(`Acted as ${truth}.`);
@@ -413,6 +413,16 @@
           `; round trip ${fmtMs(r.e2e_ms)}` + (t.cold ? "; first request after start, excluded from the averages below" : "")
       );
     }
+    const scored = state.board && state.board.rows.filter((r) => r.result);
+    if (!parts.length && scored && scored.length) {
+      const med = (xs) => { const v = xs.filter((x) => x != null).sort((p, q) => p - q); return v.length ? v[Math.floor(v.length / 2)] : null; };
+      const dev = scored.filter((r) => r.result.engine === "device");
+      if (dev.length) {
+        parts.push(`Scored ${dev.length} clips on your device. Median ${fmtMs(med(dev.map((r) => r.result.timings.total_ms)))} per clip (model ${fmtMs(med(dev.map((r) => r.result.timings.model_ms)))}, features ${fmtMs(med(dev.map((r) => r.result.timings.features_ms)))}); no requests sent`);
+      } else {
+        parts.push(`Scored ${scored.length} clips on the server. Median per clip: server ${fmtMs(med(scored.map((r) => r.result.timings.server_ms)))} (model ${fmtMs(med(scored.map((r) => r.result.timings.tract_ms)))}), round trip ${fmtMs(med(scored.map((r) => r.result.e2e_ms)))}`);
+      }
+    }
     if (!parts.length) { run.textContent = "No run yet."; return; }
     parts.forEach((p, i) => { if (i) run.append(el("br")); run.append(p); });
 
@@ -481,7 +491,7 @@
     const next = [
       "Evaluate on spontaneous, noisy, multi-speaker speech, with a breakdown by accent, age and recording device. The corpora here carry no accent labels, so that gap cannot be measured with them.",
       "Compare against a large pretrained speech encoder with a small head on top, to learn how much of the remaining error is a data limit and how much is a model limit.",
-      "Treat the Praat measurements as a second, independent reading, and learn when the two disagree. Today they sit side by side and nothing combines them.",
+      "Use the Praat measurements as a second, independent reading and learn when it disagrees with the model. Adding them as classifier inputs made no measurable difference, so today they sit side by side and nothing combines them.",
       "Score overlapping one-second windows over a live stream and smooth over time, instead of one clip at a time.",
       "Check calibration group by group, not only overall, and re-fit the abstain threshold on conversational data.",
     ];
@@ -715,6 +725,10 @@
     btn.disabled = false;
     btn.textContent = "Score all clips again";
     $("score-status").textContent = "";
+    try {
+      const st = await getJSON("/api/stats");
+      state.stats = st.stats; state.storage = st.storage || state.storage;
+    } catch (_) { /* keep the numbers already on screen */ }
     renderBoard();
     renderAll();
   }
@@ -736,7 +750,7 @@
     // strip plot: confidence on the x axis, one lane per corpus
     const thr = state.model.abstain_threshold;
     const corpora = [...new Set(rows.map((r) => r.side.corpus || "Clips"))];
-    const strip = el("div", { class: "strip", role: "img", "aria-label": "Each clip as a mark placed by the model's confidence in its top guess, grouped by corpus. Marks left of the answer line were marked unsure." });
+    const strip = el("div", { class: "strip", role: "img", "aria-label": "Each clip as a mark placed by the model's confidence in its top guess, grouped by corpus. Marks left of the confidence threshold line were marked unsure." });
     for (const c of corpora) {
       const lane = el("div", { class: "lane" }, el("span", { class: "lanename", text: c }));
       const track = el("div", { class: "lanetrack" }, el("b", { class: "tick", style: `left:${(thr * 100).toFixed(1)}%` }));
@@ -887,7 +901,7 @@
     const dl = $("mc-stats");
     dl.textContent = "";
     rows.forEach((r) => dl.append(r));
-    $("mc-flow").textContent = "Two readings of the same waveform. They share only the audio, and Praat does not feed the classifier. Today the server runs them one after the other, because Praat is not safe to run twice at once, so the total is the sum of the two.";
+    $("mc-flow").textContent = "Two readings of the same waveform. They share only the audio, and Praat does not feed the classifier. Today the server runs them one after the other, because Praat is not thread-safe, so the server measures one clip at a time and the total is the sum of the two.";
     const cb = $("cross-body");
     cb.textContent = "";
     for (const [k, v] of Object.entries(t.cross_corpus || {})) {
@@ -910,7 +924,7 @@
       more: ["The sample scoreboard marks every clip correct, incorrect or unsure.", "A cross-corpus test shows how far it falls on unfamiliar recording conditions.", "The model card is generated from the same metrics file the app reads, so the page and the card cannot disagree."],
       extra: { text: "Read the model card", href: "/model-card" } },
     { id: "latency", title: "Latency", short: "Every step is timed on every run, and the numbers are reported, not estimated.",
-      body: ["Feature extraction, Praat and model inference are timed separately. On the server the total is their sum, because Praat cannot run twice at once. On your device the model runs with no network request."],
+      body: ["Feature extraction, Praat and model inference are timed separately. On the server the total is their sum, because Praat is not thread-safe, so the server measures one clip at a time. On your device the model runs with no network request."],
       more: ["Averages, medians and slow cases (95th percentile) over all runs since launch sit near the bottom of the page.", "The first request after the server wakes is timed but left out of the averages."],
       extra: { text: "See the numbers", go: () => goTo("latency") } },
     { id: "fairness", title: "Fairness", short: "Accuracy is reported by group, on speakers the model never trained on.",

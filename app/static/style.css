@@ -346,3 +346,5 @@ body.mode-record #pairs { display: none !important; }
   .mc-stats dd small { display: block; }
 }
 #all-table td:not(:first-child), #all-table th:not(:first-child), #cost-table td:not(:first-child), #cost-table th:not(:first-child) { padding-left: 16px; }
+
+.howto { margin-top: 44px; }

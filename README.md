@@ -7,7 +7,7 @@ an abstain option, live latency numbers, an in-browser (WebAssembly) engine, and
 ![Two independent readings of one waveform](app/static/pipeline.svg)
 
 The model and Praat are two independent readings of the same audio. They are shown side by side and nothing
-combines them yet. On the server they run back to back (Praat is not safe to run twice at once).
+combines them yet. On the server they run back to back (Praat is not thread-safe, so the server measures one clip at a time).
 
 ## If you have five minutes
 
