@@ -45,7 +45,7 @@ def render_model_card(meta: dict, metrics: dict, cross: dict | None = None) -> s
         "",
         "## Model",
         f"- {meta['n_params']:,} parameters. Three conv blocks, a bidirectional GRU over time, mean pool, linear head.",
-        "- Input: 64-band log-mel, 3 s window, 16 kHz. The feature code is shared by training and serving.",
+        "- Input: 64-band log-mel, 3 s window, 16 kHz. The feature code is shared by training and inference.",
         "- Trained in PyTorch, exported to ONNX, served with tract (Sonos' inference engine).",
         f"- PyTorch vs tract parity on {metrics['parity_pytorch_vs_tract']['n']} test clips: max logit difference "
         f"{metrics['parity_pytorch_vs_tract']['max_abs_logit_diff']:.1e}, "
@@ -62,7 +62,7 @@ def render_model_card(meta: dict, metrics: dict, cross: dict | None = None) -> s
         f"- {t['n_clips']} clips from {t['n_speakers']} speakers. Chance is {_pct(t['chance_accuracy'])}.",
         f"- Accuracy {_pct(t['accuracy'])} (95% CI {_ci(t['accuracy_ci95_speaker_bootstrap'])}, bootstrap over speakers), macro-F1 {t['macro_f1']:.2f}.",
         f"- Calibration after temperature scaling (T={t['temperature']:.2f}): ECE {t['ece']:.3f}.",
-        f"- Abstention: below confidence {t['abstain_threshold']:.2f} the app says 'not sure'. On test this answers "
+        f"- Abstention: below confidence {t['abstain_threshold']:.2f} the app says 'unsure'. On test this answers "
         f"{_pct(t['coverage_at_threshold'])} of clips with {_pct(t['accuracy_when_answering'])} accuracy on those.",
         "",
         "### Per group (accuracy, 95% CI over speakers)",
@@ -90,7 +90,7 @@ def render_model_card(meta: dict, metrics: dict, cross: dict | None = None) -> s
     if cc:
         lines += [
             "### Trained on one corpus, tested on the other",
-            "A harder and more honest test than the speaker-disjoint split above: a new corpus brings new speakers, a new studio and a new script.",
+            "A harder test than the speaker-disjoint split above: a new corpus brings new speakers, a new studio and a new script.",
             "",
             "| Train | Test | Test clips | Test speakers | Accuracy | 95% CI |",
             "|---|---|---|---|---|---|",

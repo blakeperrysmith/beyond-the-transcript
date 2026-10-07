@@ -217,3 +217,12 @@ td.empty { text-align: left; }
   .grow { grid-template-columns: 1fr; gap: 2px; }
   .lane, .stripaxis { grid-template-columns: 1fr; gap: 2px; } .stripaxis > span { display: none; }
 }
+
+/* how to use */
+.howto { max-width: 760px; margin: 0 0 8px; }
+.howto ol { margin: 8px 0 0; padding-left: 1.3em; }
+.howto li { margin: 6px 0; max-width: 70ch; }
+.lede + .lede { margin-top: 8px; }
+.foot { margin-top: 28px; }
+.foot a { color: var(--focus); }
+details.groups > summary { margin-bottom: 4px; }

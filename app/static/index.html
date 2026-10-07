@@ -12,11 +12,21 @@
 
 <header class="top">
   <h1>Beyond the transcript</h1>
-  <p class="lede">A transcript keeps the words and drops the rest. Pick two recordings of the same sentence, or record your own pair, and compare what the signal still carries.</p>
+  <p class="lede">A transcript keeps the words and drops the rest. Two recordings of the same sentence can read identically as text and mean opposite things.</p>
+  <p class="lede">This is a small demo, built to show how I think about speech: what the audio carries, how a small model and measured acoustics read it, and what I would check before trusting either. It is a toy, not a product.</p>
   <p id="banner" class="banner" role="status" hidden></p>
 </header>
 
 <main>
+  <section class="howto" aria-labelledby="howto-h">
+    <h2 id="howto-h">How to use this</h2>
+    <ol>
+      <li><strong>Pick a pair</strong> of recordings of the same sentence, press Play on A and B, and read what the model and Praat make of each. Or press Score all clips to run every pair at once.</li>
+      <li><strong>Or record your own.</strong> Say one sentence twice, delivered two different ways, using Record on A and on B.</li>
+      <li><strong>Choose where it runs.</strong> On your device, nothing you record leaves the browser tab.</li>
+    </ol>
+  </section>
+
   <section id="engine" class="engine" aria-labelledby="engine-h">
     <h2 id="engine-h">Where the analysis runs</h2>
     <fieldset class="seg">
@@ -33,7 +43,7 @@
     <h2 id="pairs-h">Same sentence, spoken two ways</h2>
     <div id="pairlist" class="pairlist"></div>
     <p id="pairs-note" class="note"></p>
-    <p class="note">The right answer here is the delivery the actor was asked to perform. A clip counts as right when the model names that delivery.</p>
+    <p class="note">The right answer here is the delivery the actor was asked to perform. A clip counts as correct when the model names that delivery, incorrect when it names another, and unsure when it declines to answer.</p>
     <div class="scorebar">
       <button type="button" id="score-run" class="plain-btn">Score all clips</button>
       <span id="score-status" class="note" role="status"></span>
@@ -82,7 +92,7 @@
   </section>
 
   <section class="measures" aria-labelledby="measures-h">
-    <h2 id="measures-h">What differs between A and B</h2>
+    <h2 id="measures-h">Measured outputs</h2>
     <table id="measure-table">
       <thead><tr><th scope="col">Measurement</th><th scope="col" class="a">A</th><th scope="col" class="b">B</th></tr></thead>
       <tbody id="measure-body"><tr><td colspan="3" class="empty">Nothing measured yet.</td></tr></tbody>
@@ -91,17 +101,17 @@
   </section>
 
   <section class="model" aria-labelledby="model-h">
-    <h2 id="model-h">What a small model reads from the same audio</h2>
+    <h2 id="model-h">Inferred outputs from the model</h2>
     <div id="probs" class="probs"><p class="empty">Nothing analysed yet.</p></div>
     <p class="note">When the model is not confident enough it says so instead of picking a label.</p>
   </section>
 
-  <section id="groups" class="groups" aria-labelledby="groups-h" hidden>
-    <h2 id="groups-h">Does it work equally well for everyone?</h2>
+  <details id="groups" class="groups limits" hidden>
+    <summary id="groups-h">Fairness: does it work equally well for everyone?</summary>
     <p id="groups-lede" class="note"></p>
     <div id="groups-body"></div>
     <p class="note">Accuracy on speakers the model never heard in training. The dot is the accuracy, the line is a 95% interval resampled by speaker, the dashed line is chance. Where two intervals overlap, this data cannot show a difference in either direction. Sex comes from both corpora; age, race and ethnicity come only from CREMA-D's metadata. Demographic labels are used for evaluation only. The app never estimates them.</p>
-  </section>
+  </details>
 
   <details id="build" class="limits">
     <summary>How it is built</summary>
@@ -142,6 +152,7 @@
     <h3>What an analysis costs</h3>
     <div id="cost-body"></div>
   </div>
+  <p class="note foot"><span id="repo-wrap" hidden>Source code: <a id="repo-link" href="">on GitHub</a>. </span>Code is MIT. The model and sample clips come from CREMA-D (ODbL) and RAVDESS (CC BY-NC-SA 4.0), so they are for non-commercial use.</p>
 </footer>
 
 <script src="/static/app.js"></script>

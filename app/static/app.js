@@ -44,7 +44,7 @@
   const DS = { cremad: "CREMA-D", ravdess: "RAVDESS" };
   const dsName = (k) => DS[k] || k;
   const fmtMs = (v) => (v == null ? "n/a" : v >= 100 ? `${Math.round(v)} ms` : `${v.toFixed(1)} ms`);
-  const pct = (v) => `${Math.round(v * 100)}%`;
+  const pct = (v) => (Number.isFinite(v) ? `${Math.round(v * 100)}%` : "n/a");
   const showError = (msg) => {
     const e = $("error");
     e.textContent = msg || "";
@@ -299,7 +299,7 @@
     v.append(outcomeView(r, s.truth));
   }
 
-  const OUTCOME = { right: ["\u2713", "Right"], wrong: ["\u2715", "Wrong"], held: ["\u2013", "Held back"] };
+  const OUTCOME = { right: ["\u2713", "Correct"], wrong: ["\u2715", "Incorrect"], held: ["\u2013", "Unsure"] };
 
   function rankedProbs(r) { return Object.entries(r.probs).sort((x, y) => y[1] - x[1]); }
 
@@ -316,19 +316,19 @@
     const wrap = el("div", { class: `outcome ${kind}` });
     const head = el("div", { class: "ohead" });
     if (kind !== "plain") head.append(el("span", { class: "chip" }, el("span", { "aria-hidden": "true", text: OUTCOME[kind][0] }), ` ${OUTCOME[kind][1]}`));
-    if (r.abstained) head.append(el("strong", { text: "Not sure" }));
+    if (r.abstained) head.append(el("strong", { text: "Unsure" }));
     else head.append(el("strong", { text: cap(r.label) }), el("span", { class: "conf", text: ` at ${pct(r.confidence)} confidence` }));
     wrap.append(head);
 
     const meter = el("div", { class: "meter", role: "img", "aria-label": `The model's top guess, ${topLabel}, has ${pct(topP)} confidence. It answers only at ${pct(thr)} or more.` },
       el("i", { style: `width:${(topP * 100).toFixed(1)}%` }),
       el("b", { class: "tick", style: `left:${(thr * 100).toFixed(1)}%` }));
-    wrap.append(el("div", { class: "meterwrap" }, meter, el("span", { class: "ticklabel", style: `left:${(thr * 100).toFixed(1)}%`, text: `answers from ${pct(thr)}` })));
+    wrap.append(el("div", { class: "meterwrap" }, meter, ...(Number.isFinite(thr) ? [el("span", { class: "ticklabel", style: `left:${(thr * 100).toFixed(1)}%`, text: `answers from ${pct(thr)}` })] : [])));
 
     const bits = [];
     if (r.abstained) {
       bits.push(`Its top guess, ${topLabel} at ${pct(topP)}, is below the ${pct(thr)} it needs to answer.`);
-      if (truth) bits.push(`That guess would have been ${topLabel === truth ? "right" : "wrong"}.`);
+      if (truth) bits.push(`That guess would have been ${topLabel === truth ? "correct" : "incorrect"}.`);
     } else if (truth && kind === "right") {
       bits.push(`Acted as ${truth}.`);
     } else if (truth) {
@@ -465,7 +465,10 @@
   function renderBanner() {
     const b = $("banner");
     const m = state.model;
-    if (!m || !m.loaded) {
+    if (state.modelError) {
+      b.hidden = false;
+      b.textContent = "The model details did not load, so the confidence line, group chart and measurement notes are missing. Reload the page; analysis itself still works.";
+    } else if (!m || !m.loaded) {
       b.hidden = false;
       b.textContent = "No model is loaded on this server yet, so analysis is unavailable.";
     } else if (m.data_source !== "real") {
@@ -482,8 +485,8 @@
     const t = m.test || {};
     const ci = t.accuracy_ci95 ? ` (95% interval ${pct(t.accuracy_ci95[0])} to ${pct(t.accuracy_ci95[1])}, resampled by speaker)` : "";
     const limits = [];
-    if (t.accuracy != null) limits.push(`On ${t.n_clips} clips from ${t.n_speakers} speakers it never heard in training, it picks the right label ${pct(t.accuracy)} of the time${ci}. Chance is ${pct(t.chance)}.`);
-    if (t.coverage_at_threshold != null) limits.push(`It answers on ${pct(t.coverage_at_threshold)} of clips and abstains on the rest. When it answers, it is right ${pct(t.accuracy_when_answering)} of the time.`);
+    if (t.accuracy != null) limits.push(`On ${t.n_clips} clips from ${t.n_speakers} speakers it never heard in training, it names the acted delivery ${pct(t.accuracy)} of the time${ci}. Chance is ${pct(t.chance)}.`);
+    if (t.coverage_at_threshold != null) limits.push(`It answers on ${pct(t.coverage_at_threshold)} of clips and abstains on the rest. When it answers, it is correct ${pct(t.accuracy_when_answering)} of the time.`);
     const cc = t.cross_corpus && Object.entries(t.cross_corpus).filter(([, v]) => v && v.accuracy != null);
     if (cc && cc.length) limits.push("Trained on one corpus and tested on the other, accuracy was " + cc.map(([k, v]) => `${pct(v.accuracy)} (${k.split("_to_").map(dsName).join(" to ")})`).join(" and ") + ". That is the better guide to how it behaves on voices and recording conditions it has not met.");
     limits.push(`Trained on ${m.datasets.map(dsName).join(" and ")}: scripted sentences acted by adult speakers, mostly North American English. Acted emotion is not spontaneous emotion, and it will fail on voices, accents, ages and recording conditions the corpora do not cover.`);
@@ -693,7 +696,7 @@
         body.append(el("tr", {}, el("td", { text: `${r.layer} ${r.type}` }), el("td", { text: r.output.join(" \u00d7 ") }),
           el("td", { text: r.params.toLocaleString() }), el("td", { text: r.ms_p50.toFixed(2) })));
       }
-      $("arch-note").textContent = `${a.n_params.toLocaleString()} parameters. ${a.timing_note}. The live serving numbers are in the Latency section.`;
+      $("arch-note").textContent = `${a.n_params.toLocaleString()} parameters. ${a.timing_note}. The live inference numbers are in the Latency section.`;
     } catch (_) {
       $("arch-table").hidden = true;
     }
@@ -742,20 +745,20 @@
     const answered = tally.right + tally.wrong;
     const t = (state.model && state.model.test) || {};
     box.append(el("p", { class: "tally" },
-      el("strong", { text: `${tally.right} right, ${tally.wrong} wrong, ${tally.held} held back` }),
-      ` of ${rows.length} clips.` + (answered ? ` Right on ${tally.right} of the ${answered} it answered.` : "")));
+      el("strong", { text: `${tally.right} correct, ${tally.wrong} incorrect, ${tally.held} unsure` }),
+      ` of ${rows.length} clips.` + (answered ? ` Correct on ${tally.right} of the ${answered} it answered.` : "")));
 
     // strip plot: confidence on the x axis, one lane per corpus
     const thr = state.model.abstain_threshold;
     const corpora = [...new Set(rows.map((r) => r.side.corpus || "Clips"))];
-    const strip = el("div", { class: "strip", role: "img", "aria-label": "Each clip as a mark placed by the model's confidence in its top guess, grouped by corpus. Marks left of the answer line were held back." });
+    const strip = el("div", { class: "strip", role: "img", "aria-label": "Each clip as a mark placed by the model's confidence in its top guess, grouped by corpus. Marks left of the answer line were marked unsure." });
     for (const c of corpora) {
       const lane = el("div", { class: "lane" }, el("span", { class: "lanename", text: c }));
       const track = el("div", { class: "lanetrack" }, el("b", { class: "tick", style: `left:${(thr * 100).toFixed(1)}%` }));
       rows.filter((r) => (r.side.corpus || "Clips") === c).forEach((r, i) => {
         const kind = outcomeOf(r.result, r.side.emotion);
         const topP = rankedProbs(r.result)[0][1];
-        const mark = el("span", { class: `dot ${kind}`, style: `left:${(topP * 100).toFixed(1)}%;top:${i % 2 ? 24 : 4}px`, title: `${r.pair.sentence} (${r.key.toUpperCase()}): acted ${r.side.emotion}, ${r.result.abstained ? "held back" : "said " + r.result.label}, ${pct(topP)}` }, el("span", { "aria-hidden": "true", text: OUTCOME[kind][0] }));
+        const mark = el("span", { class: `dot ${kind}`, style: `left:${(topP * 100).toFixed(1)}%;top:${i % 2 ? 24 : 4}px`, title: `${r.pair.sentence} (${r.key.toUpperCase()}): acted ${r.side.emotion}, ${r.result.abstained ? "unsure" : "said " + r.result.label}, ${pct(topP)}` }, el("span", { "aria-hidden": "true", text: OUTCOME[kind][0] }));
         track.append(mark);
       });
       lane.append(track);
@@ -763,7 +766,7 @@
     }
     strip.append(el("div", { class: "stripaxis" }, el("span"), el("div", { class: "axisrow" }, el("span", { text: "0%" }), el("span", { text: "Model confidence in its top guess" }), el("span", { text: "100%" }))));
     box.append(strip);
-    box.append(el("p", { class: "note", text: `Marks left of the line were held back. ${rows.length} clips is too few to measure accuracy; the held-out test${t.n_clips ? ` (${t.n_clips} clips from ${t.n_speakers} speakers)` : ""} does that. This shows what right, wrong and held back look like, and how confidence relates to them.` }));
+    box.append(el("p", { class: "note", text: `Marks left of the line were marked unsure. ${rows.length} clips is too few to measure accuracy; the held-out test${t.n_clips ? ` (${t.n_clips} clips from ${t.n_speakers} speakers)` : ""} does that. This shows what correct, incorrect and unsure look like, and how confidence relates to them.` }));
 
     const det = el("details", { class: "clipwise" }, el("summary", { text: "Clip by clip" }));
     const tb = el("tbody");
@@ -772,7 +775,7 @@
       if (!r.result) { tb.append(el("tr", {}, el("td", { text: head }), el("td", { colspan: "4", class: "empty", text: r.error || "Could not analyse" }))); continue; }
       const kind = outcomeOf(r.result, r.side.emotion), [topLabel, topP] = rankedProbs(r.result)[0];
       tb.append(el("tr", {}, el("td", { text: head }), el("td", { text: cap(r.side.emotion) }),
-        el("td", { text: r.result.abstained ? `Not sure (${topLabel})` : cap(r.result.label) }),
+        el("td", { text: r.result.abstained ? `Unsure (${topLabel})` : cap(r.result.label) }),
         el("td", { text: pct(topP) }),
         el("td", {}, el("span", { class: `chip ${kind}` }, el("span", { "aria-hidden": "true", text: OUTCOME[kind][0] }), ` ${OUTCOME[kind][1]}`))));
     }
@@ -869,13 +872,25 @@
     });
   }
 
+  const REPO_URL = ""; // set to the public repository URL to show the footer link
+
   async function init() {
     wire();
+    if (REPO_URL) { $("repo-link").href = REPO_URL; $("repo-wrap").hidden = false; }
     renderAll();
-    try {
-      state.model = await getJSON("/api/model");
-    } catch (_) {
+    // The model details drive the threshold line, the group chart and the measurement labels, so retry once
+    // (a cold start can time out the first request) and say so on the page if they never arrive.
+    for (let attempt = 0; attempt < 2 && !state.model; attempt++) {
+      try {
+        state.model = await getJSON("/api/model");
+      } catch (e) {
+        console.error("Could not load /api/model:", e);
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+    if (!state.model) {
       state.model = { loaded: false };
+      state.modelError = true;
     }
     renderBanner(); renderLimits(); renderGroups(); probeDevice();
     try {

@@ -2,7 +2,7 @@
 
 Play two recordings of the same sentence and see what the audio carries that a transcript drops. A worked
 example of delivery (emotion) classification from audio alone: a small PyTorch model, Praat-measured prosody,
-an abstain option, live latency numbers, an in-browser (WebAssembly) engine, and an honest model card.
+an abstain option, live latency numbers, an in-browser (WebAssembly) engine, and a model card.
 
 ![Two independent readings of one waveform](app/static/pipeline.svg)
 
@@ -13,7 +13,7 @@ combines them yet. On the server they run back to back (Praat is not safe to run
 
 | Look at | What it shows |
 |---|---|
-| `btt/features.py` and `app/static/ondevice/features.js` | One audio front end for training and serving, so no train/serve skew. A JavaScript port reproduces it, including the resampler, to under 2e-4 on log-mel. |
+| `btt/features.py` and `app/static/ondevice/features.js` | One audio front end for training and inference, so no train/serve skew. A JavaScript port reproduces it, including the resampler, to under 2e-4 on log-mel. |
 | `btt/export.py`, `btt/tract_runtime.py`, `tests/test_model_export.py` | PyTorch to ONNX to [tract](https://github.com/sonos/tract), with a parity test because tract issue #2751 (GRU activation attributes ignored) can fail silently. |
 | `btt/evaluate.py` | Speaker-level bootstrap intervals, bounded temperature scaling, expected calibration error, abstention, per-group and per-speaker reports. |
 | `btt/train.py`, `notebooks/train_kaggle.ipynb` | Speaker-disjoint splits within each corpus, GPU training in the cloud, cross-corpus runs reported separately. |
@@ -37,10 +37,10 @@ On speakers never seen in training the model names the acted delivery 62.3% of t
 chance, and abstains on the clips it is least sure about. Trained on one corpus and tested on the other it is
 close to chance, which says it has learned corpus-specific cues as well as delivery. Per-group tables, intervals
 and the cross-corpus table are on the model card. The page shows its own misses: a scoreboard marks every sample
-clip right, wrong or held back, and plots confidence against outcome.
+clip correct, incorrect or unsure, and plots confidence against outcome.
 
 - Training: PyTorch, small CRNN (3 conv blocks, bidirectional GRU, 106,934 parameters).
-- Serving: Python (FastAPI), inference in [tract](https://github.com/sonos/tract) via its Python bindings.
+- Inference: Python (FastAPI), inference in [tract](https://github.com/sonos/tract) via its Python bindings.
 - Data: CREMA-D and RAVDESS only. No family or personal recordings are used anywhere.
 
 ## What is real and what is not
@@ -70,7 +70,7 @@ and the WebAssembly model. Those browser tests skip themselves when Node or Chro
 
 ## Design decisions
 
-- **One front end.** `btt/features.py` is used for training and serving, so there is no train/serve skew.
+- **One front end.** `btt/features.py` is used for training and inference, so there is no train/serve skew.
 - **Speaker-disjoint evaluation.** Splits are by speaker within each corpus. Confidence intervals resample
   speakers, not clips. Cross-corpus results (train on one, test on the other) are reported separately.
 - **Calibrated abstention.** Temperature scaling on validation, then a confidence threshold giving about 80% coverage.
