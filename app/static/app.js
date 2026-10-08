@@ -929,7 +929,7 @@
       body: ["An overall number can look healthy while one group of speakers fails. That is what the bias-assessment work I co-authored at Sonos was about. Here accuracy is broken out by sex, age, race and ethnicity wherever the data has labels, with intervals resampled by speaker."],
       more: ["Where two intervals overlap, the data cannot show a difference in either direction.", "The labels are used for evaluation only. The app never estimates them.", "Both corpora are acted speech, and neither is a representative sample of people."],
       extra: { text: "See the breakdown", go: () => goTo("groups", "groups") } },
-    { id: "cost", title: "Cost-awareness", short: "What is costs to run inference at scale, estimated on AWS with different usage demands.",
+    { id: "cost", title: "Cost-awareness", short: "Estimated inference costs at scale on AWS, with a slider for usage demand.",
       body: ["The estimate comes from the measured server time per analysis, priced on a small AWS instance. When the analysis runs on your device, it costs the host no compute."],
       more: ["You can change how busy the instance is. Real traffic is never flat out.", "It leaves out bandwidth, storage, monitoring and engineering time."],
       extra: { text: "See the estimate", go: () => goTo("cost-wrap") } },
