@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 858" width="900" height="858" role="img" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
-<title>Two independent readings of one waveform: a learned delivery classifier and Praat measurements</title>
+<title>Two independent processing paths of one waveform: a learned delivery classifier and Praat measurements</title>
 <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#15222c"/></marker></defs>
 <rect width="900" height="858" fill="#ffffff"/>
 <rect x="300" y="8" width="300" height="72" rx="6" fill="#f4f6f7" stroke="#15222c" stroke-width="1.6"/>
@@ -13,9 +13,9 @@
 <path d="M450 162 L450 184 L235 184 L235 208" stroke="#3a3fa5" stroke-width="1.8" fill="none" stroke-linejoin="round" marker-end="url(#ah)"/>
 <path d="M450 184 L675 184 L675 208" stroke="#b9531c" stroke-width="1.8" fill="none" stroke-linejoin="round" marker-end="url(#ah)"/>
 <rect x="30" y="208" width="410" height="30" rx="15" fill="#3a3fa5"/>
-<text x="235" y="228" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">Learned reading</text>
+<text x="235" y="228" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">Learned processing</text>
 <rect x="480" y="208" width="390" height="30" rx="15" fill="#b9531c"/>
-<text x="675" y="228" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">Measured reading</text>
+<text x="675" y="228" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">Measured processing</text>
 <rect x="30" y="262" width="410" height="62" rx="6" fill="#eceefb" stroke="#3a3fa5" stroke-width="1.6"/>
 <text x="44" y="286" font-size="15" font-weight="700" fill="#15222c">Log-mel features</text>
 <text x="44" y="306" font-size="13" fill="#15222c">64 bands, 3 s window (300 frames, 10 ms hop)</text>
@@ -61,7 +61,7 @@
 <path d="M235 728 L235 748 L675 748 M675 728 L675 748" stroke="#15222c" stroke-width="1.8" fill="none" stroke-linejoin="round"/>
 <path d="M450 748 L450 770" stroke="#15222c" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
 <rect x="250" y="770" width="400" height="74" rx="6" fill="#f4f6f7" stroke="#15222c" stroke-width="1.6"/>
-<text x="264" y="794" font-size="15" font-weight="700" fill="#15222c">The page: A and B side by side</text>
-<text x="264" y="814" font-size="13" fill="#15222c">Nothing combines the two readings.</text>
-<text x="264" y="834" font-size="13" fill="#5a6a75">Praat is not an input to the model.</text>
+<text x="264" y="794" font-size="15" font-weight="700" fill="#15222c">Results: A and B side by side</text>
+<text x="264" y="814" font-size="13" fill="#15222c">No module combines the two processing paths, they are just presented one below the other.</text>
+<text x="264" y="834" font-size="13" fill="#5a6a75">Also, Praat features are not an input to the model.</text>
 </svg>

@@ -44,7 +44,7 @@
 
 <main>
   <section id="principles" aria-labelledby="principles-h">
-    <h2 id="principles-h">What this is built around</h2>
+    <h2 id="principles-h">Design principles</h2>
     <ul id="cards" class="cards"></ul>
   </section>
 
@@ -57,22 +57,22 @@
     </fieldset>
     <div id="howto-samples">
       <ol>
-        <li>Pick a pair. Press Play on A and on B, or let it play, and read what the model and Praat make of each.</li>
+        <li>Pick a pair. Press Play on A and on B, or let it play automatically, then see model predictions and acoustic measurements.</li>
         <li>Or press Score all clips to run every sample at once and see how often it is correct, incorrect or unsure.</li>
       </ol>
     </div>
     <div id="howto-record">
       <ol>
         <li>Plan one sentence you will say twice.</li>
-        <li>Record it once, then tap the delivery you performed. It shows as saved.</li>
-        <li>Record it again in a different delivery and tap that one. The model then scores both against what you said you did.</li>
+        <li>Record it once, then tap the emotional style / delivery you performed. It shows as saved.</li>
+        <li>Record it again in a different delivery and label the new style. The model then scores both against what you said you did.</li>
       </ol>
-      <p class="privacy-note"><strong>Your recording stays yours.</strong> Run it on your device and the audio never leaves this browser tab. On the server it is analysed in memory and discarded. <button type="button" class="linkbtn" data-card="privacy">Read the privacy details</button></p>
+      <p class="privacy-note"><strong>Your privacy matters.</strong> Run it on your device and the audio never leaves this browser tab. Ran on the server it is analysed in memory and immediately discarded. <button type="button" class="linkbtn" data-card="privacy">Read the privacy details</button></p>
     </div>
   </section>
 
   <section id="engine" class="engine" aria-labelledby="engine-h">
-    <h2 id="engine-h">Where the analysis runs</h2>
+    <h2 id="engine-h">Inference Mode</h2>
     <fieldset class="seg">
       <legend class="sr">Where the analysis runs</legend>
       <label><input type="radio" name="engine" value="server" checked><span>On the server</span></label>
@@ -86,7 +86,7 @@
     <h2 id="pairs-h">Same sentence, spoken two ways</h2>
     <div id="pairlist" class="pairlist"></div>
     <p id="pairs-note" class="note"></p>
-    <p class="note">The right answer here is the delivery the actor was asked to perform. A clip counts as correct when the model names that delivery, incorrect when it names another, and unsure when it declines to answer.</p>
+    <p class="note">The ground truth label here is the delivery the actor was asked to perform. A clip is counted as correct when the model predicts that delivery, incorrect when it names another, and unsure when it declines to answer.</p>
     <div class="scorebar">
       <button type="button" id="score-run" class="plain-btn">Score all clips</button>
       <span id="score-status" class="note" role="status"></span>
@@ -104,7 +104,7 @@
 
   <section id="outputs" class="outputs" aria-labelledby="sentence-h">
     <h2 id="sentence-h" class="sr">The sentence and the results</h2>
-    <p id="sentence" class="sentence">Choose a pair above, or record the same sentence twice in two different ways.</p>
+    <p id="sentence" class="sentence">Choose a pair above, or record the same sentence twice with two distinct deliveries.</p>
 
     <div class="cols" id="cols">
       <div class="cell head a" id="slot-a">
@@ -132,7 +132,7 @@
       <h3 class="rowtitle">Inferred outputs from the model</h3>
       <div class="cell a"><div id="verdict-a" class="verdict" aria-live="polite"></div><div id="probs-a" class="probs"></div></div>
       <div class="cell b"><div id="verdict-b" class="verdict" aria-live="polite"></div><div id="probs-b" class="probs"></div></div>
-      <p class="note span2">When the model is not confident enough it says so instead of picking a label.</p>
+      <p class="note span2">When the model is not sufficiently confident enough it abstains instead of picking a label.</p>
 
       <h3 class="rowtitle">Measured outputs</h3>
       <div class="cell a"><dl id="measures-a" class="measures"></dl></div>
@@ -152,7 +152,7 @@
       </header>
       <p class="mc-sub">A small convolutional recurrent network that names a delivery from audio alone.</p>
       <figure class="mc-art">
-        <img id="pipe-img" src="/static/pipeline.svg" alt="Diagram. The waveform is split into two independent readings: a learned path (log-mel features, a small recurrent network, temperature scaling, an abstain threshold) and a measured path (Praat pitch, rhythm and loudness). Praat does not feed the classifier." width="100%" loading="lazy">
+        <img id="pipe-img" src="/static/pipeline.svg" alt="Diagram. The waveform is passed into two independent processing paths: a learned path (log-mel features, a small recurrent network, temperature scaling, and confidence threshold) and a measured path (Praat pitch, rhythm and loudness). Praat does not feed the classifier." width="100%" loading="lazy">
       </figure>
       <dl id="mc-stats" class="mc-stats"></dl>
       <p class="mc-weak"><strong>Weakness.</strong> It learned acted speech from two studio corpora. It is far weaker on a corpus it was not trained on, and it reads performed delivery, not what anyone feels.</p>
@@ -175,8 +175,8 @@
       <div id="build-body">
         <p>The browser sends raw 16-bit audio to a Python (FastAPI) server. The server computes one shared log-mel front end, measures prosody with Praat, and runs the network in <a href="https://github.com/sonos/tract">tract</a>. The model is trained in PyTorch and exported to ONNX, and a test checks that tract and PyTorch agree to within 1e-3 on the same input.</p>
         <p>The on-device option runs that same ONNX file in the browser with ONNX Runtime Web (WebAssembly). The feature code is a JavaScript port of the Python one, and a test requires the two to agree to 1e-3 on the log-mel features before the model sees them.</p>
-        <p>I also tried feeding six Praat measurements into the classifier as extra inputs. Across three speaker-disjoint splits it never beat audio alone: the average difference was under one point, and the intervals spanned zero. So Praat stays a separate, measured reading, not an input.</p>
-        <p class="note">The two readings of the waveform share only the audio. Today the server runs them one after the other, because Praat is not thread-safe, so the server measures one clip at a time and the total is the sum of the two.</p>
+        <p>I also tried feeding six Praat measurements into the classifier as additional inputs. Across three speaker-disjoint splits it never beat log-mel features on their own: the average difference was under one point, and the intervals spanned zero.</p>
+        <p class="note">The two processing paths of the waveform share only the audio. Today the server runs them one after the other, because Praat is not thread-safe, so analyses run one at a time and the total is every step added together.</p>
       </div>
     </details>
 
@@ -190,7 +190,7 @@
 
   <section id="latency" class="lat" aria-labelledby="latency-h">
     <h2 id="latency-h">Latency</h2>
-    <p id="privacy" class="note">Audio is processed in memory and discarded. Only the timings below are stored: no audio, no address, no account.</p>
+    <p id="privacy" class="note">Audio is processed in memory and discarded. Only the timing metrics (shown below) are stored: no audio, location, or account.</p>
     <h3 class="lhead">This run</h3>
     <p id="this-run">No run yet.</p>
     <h3 class="lhead" id="all-h">All runs since launch</h3>
@@ -202,7 +202,7 @@
   </section>
 
   <section id="cost-wrap" class="cost" aria-labelledby="cost-h" hidden>
-    <h2 id="cost-h">What an analysis costs</h2>
+    <h2 id="cost-h">Inference costs</h2>
     <div id="cost-body"></div>
   </section>
 

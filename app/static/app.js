@@ -485,13 +485,12 @@
     const cc = t.cross_corpus && Object.entries(t.cross_corpus).filter(([, v]) => v && v.accuracy != null);
     if (cc && cc.length) limits.push("Trained on one corpus and tested on the other, accuracy was " + cc.map(([k, v]) => `${pct(v.accuracy)} (${k.split("_to_").map(dsName).join(" to ")})`).join(" and ") + ". That is the better guide to how it behaves on voices and recording conditions it has not met.");
     limits.push(`Trained on ${m.datasets.map(dsName).join(" and ")}: scripted sentences acted by adult speakers, mostly North American English. Acted emotion is not spontaneous emotion, and it will fail on voices, accents, ages and recording conditions the corpora do not cover.`);
-    limits.push("The labels describe how a sentence was delivered, not what a person feels. It should not be used to judge anyone.");
-    limits.push("The author's production voice work was machine-directed speech. That is a different register from conversation, and this demo does not claim otherwise.");
+    limits.push("The labels describe how a sentence was delivered, not what a person feels. It should not be used to try and judge real emotions.");
     limits.push(`${m.n_params.toLocaleString()} parameters. Model licence is non-commercial because RAVDESS is CC BY-NC-SA 4.0.`);
     const next = [
       "Evaluate on spontaneous, noisy, multi-speaker speech, with a breakdown by accent, age and recording device. The corpora here carry no accent labels, so that gap cannot be measured with them.",
       "Compare against a large pretrained speech encoder with a small head on top, to learn how much of the remaining error is a data limit and how much is a model limit.",
-      "Use the Praat measurements as a second, independent reading and learn when it disagrees with the model. Adding them as classifier inputs made no measurable difference, so today they sit side by side and nothing combines them.",
+      "Flag the clips where the Praat measurements and the model disagree, and study those cases. Today they sit side by side and nothing compares them.",
       "Score overlapping one-second windows over a live stream and smooth over time, instead of one clip at a time.",
       "Check calibration group by group, not only overall, and re-fit the abstain threshold on conversational data.",
     ];
@@ -901,7 +900,7 @@
     const dl = $("mc-stats");
     dl.textContent = "";
     rows.forEach((r) => dl.append(r));
-    $("mc-flow").textContent = "Two readings of the same waveform. They share only the audio, and Praat does not feed the classifier. Today the server runs them one after the other, because Praat is not thread-safe, so the server measures one clip at a time and the total is the sum of the two.";
+    $("mc-flow").textContent = "Two proceesing paths of the same waveform. They share only the audio, and Praat does not feed the classifier. Today the server runs them one after the other, because Praat is not thread-safe, so the server measures one clip at a time and the total is the sum of the two.";
     const cb = $("cross-body");
     cb.textContent = "";
     for (const [k, v] of Object.entries(t.cross_corpus || {})) {
@@ -931,7 +930,7 @@
       body: ["An overall number can look healthy while one group of speakers fails. That is what the bias-assessment work I co-authored at Sonos was about. Here accuracy is broken out by sex, age, race and ethnicity wherever the data has labels, with intervals resampled by speaker."],
       more: ["Where two intervals overlap, the data cannot show a difference in either direction.", "The labels are used for evaluation only. The app never estimates them.", "Both corpora are acted speech, and neither is a representative sample of people."],
       extra: { text: "See the breakdown", go: () => goTo("groups", "groups") } },
-    { id: "cost", title: "Cost", short: "What an analysis costs on AWS, and what it costs when your device does the work.",
+    { id: "cost", title: "Cost-aware", short: "What an analysis costs on AWS, and what it costs when your device does the work.",
       body: ["The estimate comes from the measured server time per analysis, priced on a small AWS instance. When the analysis runs on your device, it costs the host no compute."],
       more: ["You can change how busy the instance is. Real traffic is never flat out.", "It leaves out bandwidth, storage, monitoring and engineering time."],
       extra: { text: "See the estimate", go: () => goTo("cost-wrap") } },
